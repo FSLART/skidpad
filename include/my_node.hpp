@@ -1,3 +1,4 @@
+#pragma once
 #include <vector>
 #include <cmath>
 //#include <Eigen/Dense>
@@ -10,7 +11,8 @@
 #include "lart_msgs/msg/path_spline.hpp"
 #include "lart_msgs/msg/cone.hpp"
 #include "lart_msgs/msg/cone_array.hpp"
-
+#include "utils.hpp"
+#include "types.hpp"
 
 
 class skidpad_node : public rclcpp::Node
@@ -18,6 +20,8 @@ class skidpad_node : public rclcpp::Node
     public:
      skidpad_node();
     private:
+        std::vector<PathStruct> map;
+
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_vis_pub;
         rclcpp::Publisher<lart_msgs::msg::PathSpline>::SharedPtr path_control_pub; 
 
