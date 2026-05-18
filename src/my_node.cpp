@@ -127,26 +127,28 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
         int yellow_index = -1;
 
         double tmp_distance_blue = 10, tmp_distance_yellow = 10;
-        for (size_t i = 0; i < cones_s.size(); i++){
-            if (cones_s[i].BLUE == 2){
-                tmp_distance_blue = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);//Verificar se o carro começa em 0
-                if (tmp_distance_blue < dist_b){
-                    dist_b = tmp_distance_blue;
-                    blue_index = i;
-                }
-            }else if (cones_s[i].YELLOW == 1){
-                tmp_distance_yellow = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
-                if (tmp_distance_yellow < dist_y){
-                    dist_y = tmp_distance_yellow;
-                    yellow_index = i;
+        if(!cones_s.empty()){
+            for (size_t i = 0; i < cones_s.size(); i++){
+                if (cones_s[i].BLUE == 2){
+                    tmp_distance_blue = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);//Verificar se o carro começa em 0
+                    if (tmp_distance_blue < dist_b){
+                        dist_b = tmp_distance_blue;
+                        blue_index = i;
+                    }
+                }else if (cones_s[i].YELLOW == 1){
+                    tmp_distance_yellow = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
+                    if (tmp_distance_yellow < dist_y){
+                        dist_y = tmp_distance_yellow;
+                        yellow_index = i;
+                    }
                 }
             }
-        }
-        //Calcula o ponto medio dos cones mais proximos ao caroo
-        if (blue_index != -1 && yellow_index != -1) 
-        {
-            map_localizer(msg,blue_index,yellow_index,&map);
-            map_Localized = !map_Localized;
+            //Calcula o ponto medio dos cones mais proximos ao caroo
+            if (blue_index != -1 && yellow_index != -1) 
+            {
+                map_localizer(msg,blue_index,yellow_index,&map);
+                map_Localized = true;
+            }
         }
     }
 }
