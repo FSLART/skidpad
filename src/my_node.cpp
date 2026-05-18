@@ -146,6 +146,7 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
             //Calcula o ponto medio dos cones mais proximos ao caroo
             if (blue_index != -1 && yellow_index != -1) 
             {
+                RCLCPP_INFO(this->get_logger(), "Tou aqui");
                 map_localizer(msg,blue_index,yellow_index,&map);
                 map_Localized = true;
             }
