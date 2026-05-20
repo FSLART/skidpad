@@ -83,6 +83,9 @@ void skidpad_node::SplitLineSender(CarData carData){
                 dist += d;
                 pathSpline_msg.distance.push_back(dist);
                 if(pathSpline_msg.poses.size() >= 40){
+                    RCLCPP_INFO(this->get_logger(), "Enviar");
+                    path_control_pub->publish(pathSpline_msg);
+                    path_vis_pub->publish(path_rviz_msg);
                     break;
                 }
             }

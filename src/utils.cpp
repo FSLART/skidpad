@@ -50,7 +50,7 @@ void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_inde
     double cos_tr = std::cos(tr);
     double sin_tr = std::sin(tr);
 
-    for(PathStruct path : temp_map){
+    for(PathStruct& path : temp_map){
         double original_x = path.x;
 
         path.x = original_x * cos_tr - path.y * sin_tr+tx;
