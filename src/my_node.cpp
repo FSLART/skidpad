@@ -58,6 +58,8 @@ void skidpad_node::SplitLineSender(CarData carData){
             double d = distance(map[i].x, map[i].y, map[j].x,map[j].y);
 
             if(d <= 0.5){
+                RCLCPP_INFO(this->get_logger(),"Ponto antes x: %.2f y:%.2f PONTO DEPOIS x: %.2f y: %.2f", map[i].x, map[i].y, map[j].x, map[j].y);
+
                 geometry_msgs::msg::PoseStamped pose;
                 pose = createPoseMsg(map[j].x,map[j].y,
                     carData.roll, carData.pitch,carData.yaw,
