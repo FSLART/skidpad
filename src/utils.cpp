@@ -46,7 +46,7 @@ void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_inde
     //Calcular a Rotação Inicial (tr)
     // Na Formula Student: Azul é Esquerda, Amarelo é Direita.
     // O vetor vai do Azul para o Amarelo. Queremos a perpendicular (frente).
-    double tr = atan2(yy - by, yx - bx) - (M_PI / 2.0); 
+    double tr = atan2(yy - by, yx - bx); 
 
     double cos_tr = std::cos(tr);
     double sin_tr = std::sin(tr);
