@@ -40,6 +40,9 @@ void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_inde
     double yx = cones_s[yellow_index].position.x;
     double yy = cones_s[yellow_index].position.y;
 
+    double midpoint_x = (bx+yx)/2;
+    double midpoint_y = (by+yy)/2;
+
     double tx = (bx + yx) / 2.0;
     double ty = (by + yy) / 2.0;
 
@@ -47,14 +50,6 @@ void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_inde
     // Na Formula Student: Azul é Esquerda, Amarelo é Direita.
     // O vetor vai do Azul para o Amarelo. Queremos a perpendicular (frente).
     double tr = atan2(yy - by, yx - bx); 
-
-    // 3. --- VALORES HARDCODED PARA CALIBRAÇÃO (EDITA AQUI) ---
-    // offset_x: Empurra o mapa para a FRENTE (tenta valores entre 5.0 e 15.0)
-    double offset_x = 8.5; 
-    
-    // offset_y: Se for negativo, empurra o mapa para a DIREITA (tenta entre -2.0 e -6.0)
-    double offset_y = -3.5;
-
 
     double cos_tr = std::cos(tr);
     double sin_tr = std::sin(tr);
@@ -65,8 +60,8 @@ void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_inde
         // path.x = original_x * cos_tr - path.y * sin_tr+tx;
         // path.y = original_x * sin_tr + path.y * cos_tr+ty;
 
-        path.x = (original_x + offset_x) * cos_tr - (path.y + offset_y) * sin_tr + tx;
-        path.y = (original_x + offset_x) * sin_tr + (path.y + offset_y) * cos_tr + ty;
+        path.x = (original_x + midpoint_x) * cos_tr - (path.y + midpoint_y) * sin_tr + tx;
+        path.y = (original_x + midpoint_x) * sin_tr + (path.y + midpoint_y) * cos_tr + ty;
     }
 
     *map = temp_map;
