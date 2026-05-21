@@ -17,14 +17,89 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
 };
 
 //Responsible for sending planned path marker and planned path topic
+// void skidpad_node::SplitLineSender(CarData carData){
+//     double dist = 0;
+//     auto stamp = this->now();
+    
+//     //messages inicialization
+//     geometry_msgs::msg::PoseStamped pose;
+//     lart_msgs::msg::PathSpline pathSpline_msg;
+
+//     pathSpline_msg.header.stamp = stamp;
+//     pathSpline_msg.header.frame_id = "world";
+
+//     nav_msgs::msg::Path path_rviz_msg;
+//     path_rviz_msg.header.stamp = stamp;
+//     path_rviz_msg.header.frame_id = "world";
+
+//     for(std::size_t i = 0; i<map.size();i++){
+//         double dx = map[i].x - carData.car_x;
+//         double dy = map[i].y - carData.car_y;
+
+//         double forward =
+//             dx * std::cos(carData.yaw) +
+//             dy * std::sin(carData.yaw);
+
+//         if(forward < 0.0)
+//             continue;
+
+
+//         // if(map[i].x < carData.car_x && map[i].y < carData.car_y)//Corrigir 
+//         //     continue;
+        
+//         if(dist > 10000){
+//             RCLCPP_INFO(this->get_logger(), "Enviar");
+//             path_control_pub->publish(pathSpline_msg);
+//             path_vis_pub->publish(path_rviz_msg);
+//             break;
+//         }
+
+//         for(std::size_t j = 1; j<map.size();j++){
+//             double d = distance(map[i].x, map[i].y, map[j].x,map[j].y);
+
+//             if(d <= 0.5){
+//                 RCLCPP_INFO(this->get_logger(),"Ponto antes x: %.2f y:%.2f PONTO DEPOIS x: %.2f y: %.2f", map[i].x, map[i].y, map[j].x, map[j].y);
+
+//                 geometry_msgs::msg::PoseStamped pose;
+//                 pose = createPoseMsg(map[j].x,map[j].y,
+//                     carData.roll, carData.pitch,carData.yaw,
+//                     stamp); 
+
+//                 //MEGA DEBUG MESSAGE
+//                 // RCLCPP_INFO(this->get_logger(), 
+//                 // "Novo Ponto Adicionado:\n"
+//                 // "  Car Pos x:%.2f   y:%.2f"
+//                 // "  Distância Total: %.2f\n"
+//                 // "  Ponto a atual a envia x:%.2f y:%.2f"
+//                 // "  Curvatura: %.4f\n",
+//                 // carData.car_x,
+//                 // carData.car_y,
+//                 // dist,
+//                 // map[j].x,
+//                 // map[j].y,
+//                 // map[j].cur);
+
+//                 pathSpline_msg.poses.push_back(pose);
+//                 pathSpline_msg.curvature.push_back(map[j].cur);
+//                 path_rviz_msg.poses.push_back(pose);
+//                 dist += d;
+//                 pathSpline_msg.distance.push_back(dist);
+//                 if(pathSpline_msg.poses.size() >= 40){
+//                     RCLCPP_INFO(this->get_logger(), "Enviar");
+//                     path_control_pub->publish(pathSpline_msg);
+//                     path_vis_pub->publish(path_rviz_msg);
+//                     break;
+//                 }
+//             }
+//         }
+//     }
+// }
+
 void skidpad_node::SplitLineSender(CarData carData){
-    double dist = 0;
     auto stamp = this->now();
     
-    //messages inicialization
-    geometry_msgs::msg::PoseStamped pose;
+    // 1. Inicialização das mensagens
     lart_msgs::msg::PathSpline pathSpline_msg;
-
     pathSpline_msg.header.stamp = stamp;
     pathSpline_msg.header.frame_id = "world";
 
@@ -32,69 +107,84 @@ void skidpad_node::SplitLineSender(CarData carData){
     path_rviz_msg.header.stamp = stamp;
     path_rviz_msg.header.frame_id = "world";
 
-    for(std::size_t i = 0; i<map.size();i++){
+    if (map.empty()) return; // Prevenção de segurança
+
+    // 2. Encontrar o ponto de partida (o mais próximo que esteja à frente do carro)
+    int start_idx = -1;
+    for(std::size_t i = 0; i < map.size(); i++){
         double dx = map[i].x - carData.car_x;
         double dy = map[i].y - carData.car_y;
-
-        double forward =
-            dx * std::cos(carData.yaw) +
-            dy * std::sin(carData.yaw);
-
-        if(forward < 0.0)
-            continue;
-
-
-        // if(map[i].x < carData.car_x && map[i].y < carData.car_y)//Corrigir 
-        //     continue;
         
-        if(dist > 10000){
-            RCLCPP_INFO(this->get_logger(), "Enviar");
-            path_control_pub->publish(pathSpline_msg);
-            path_vis_pub->publish(path_rviz_msg);
-            break;
-        }
+        // Produto escalar simples para saber se o ponto está à frente
+        double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
 
-        for(std::size_t j = 1; j<map.size();j++){
-            double d = distance(map[i].x, map[i].y, map[j].x,map[j].y);
-
-            if(d <= 0.5){
-                RCLCPP_INFO(this->get_logger(),"Ponto antes x: %.2f y:%.2f PONTO DEPOIS x: %.2f y: %.2f", map[i].x, map[i].y, map[j].x, map[j].y);
-
-                geometry_msgs::msg::PoseStamped pose;
-                pose = createPoseMsg(map[j].x,map[j].y,
-                    carData.roll, carData.pitch,carData.yaw,
-                    stamp); 
-
-                //MEGA DEBUG MESSAGE
-                // RCLCPP_INFO(this->get_logger(), 
-                // "Novo Ponto Adicionado:\n"
-                // "  Car Pos x:%.2f   y:%.2f"
-                // "  Distância Total: %.2f\n"
-                // "  Ponto a atual a envia x:%.2f y:%.2f"
-                // "  Curvatura: %.4f\n",
-                // carData.car_x,
-                // carData.car_y,
-                // dist,
-                // map[j].x,
-                // map[j].y,
-                // map[j].cur);
-
-                pathSpline_msg.poses.push_back(pose);
-                pathSpline_msg.curvature.push_back(map[j].cur);
-                path_rviz_msg.poses.push_back(pose);
-                dist += d;
-                pathSpline_msg.distance.push_back(dist);
-                if(pathSpline_msg.poses.size() >= 40){
-                    RCLCPP_INFO(this->get_logger(), "Enviar");
-                    path_control_pub->publish(pathSpline_msg);
-                    path_vis_pub->publish(path_rviz_msg);
-                    break;
-                }
-            }
+        if(forward > 0.0){
+            start_idx = i;
+            break; 
         }
     }
-}
 
+    if(start_idx == -1) {
+        RCLCPP_WARN(this->get_logger(), "Nenhum ponto do mapa encontrado à frente do carro!");
+        return; 
+    }
+
+    // Variáveis para controlar a distância entre pontos
+    double last_added_x = map[start_idx].x;
+    double last_added_y = map[start_idx].y;
+    double cumulative_dist = 0.0;
+
+    // Adicionar o primeiro ponto à mensagem
+    geometry_msgs::msg::PoseStamped pose = createPoseMsg(
+        map[start_idx].x, map[start_idx].y,
+        carData.roll, carData.pitch, carData.yaw, stamp
+    );
+    pathSpline_msg.poses.push_back(pose);
+    pathSpline_msg.curvature.push_back(map[start_idx].cur);
+    pathSpline_msg.distance.push_back(cumulative_dist);
+    path_rviz_msg.poses.push_back(pose);
+
+    // 3. Iterar sequencialmente (usando while e módulo para lidar com o circuito fechado)
+    std::size_t i = (start_idx + 1) % map.size(); // Começa no ponto a seguir
+    std::size_t pontos_verificados = 0;           // Segurança contra loops infinitos
+
+    while(pathSpline_msg.poses.size() < 40 && pontos_verificados < map.size()){
+        
+        // Distância ao ÚLTIMO ponto que enviámos
+        double d = distance(last_added_x, last_added_y, map[i].x, map[i].y);
+
+        // Só guarda se a distância for maior ou igual a 50cm
+        if(d >= 0.5){
+            pose = createPoseMsg(
+                map[i].x, map[i].y,
+                carData.roll, carData.pitch, carData.yaw, stamp
+            );
+
+            pathSpline_msg.poses.push_back(pose);
+            pathSpline_msg.curvature.push_back(map[i].cur);
+            
+            cumulative_dist += d;
+            pathSpline_msg.distance.push_back(cumulative_dist);
+            path_rviz_msg.poses.push_back(pose);
+
+            // Atualiza a âncora para o próximo cálculo de distância
+            last_added_x = map[i].x;
+            last_added_y = map[i].y;
+        }
+
+        // Avança para o próximo ponto (se chegar ao fim do map, volta a 0)
+        i = (i + 1) % map.size();
+        pontos_verificados++;
+    }
+
+    // 4. Publicar apenas UMA vez no final da função
+    if(!pathSpline_msg.poses.empty()){
+        // RCLCPP_INFO(this->get_logger(), "Enviado Path: %zu pontos, Distância total: %.2fm", 
+        //             pathSpline_msg.poses.size(), cumulative_dist);
+        path_control_pub->publish(pathSpline_msg);
+        path_vis_pub->publish(path_rviz_msg);
+    }
+}
 
 
 //Sem localizar o mapa primeiro
