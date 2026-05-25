@@ -20,51 +20,51 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
 // void skidpad_node::SplitLineSender(CarData carData){
 //     double dist = 0;
 //     auto stamp = this->now();
-    
+//  
 //     //messages inicialization
 //     geometry_msgs::msg::PoseStamped pose;
 //     lart_msgs::msg::PathSpline pathSpline_msg;
-
+//
 //     pathSpline_msg.header.stamp = stamp;
 //     pathSpline_msg.header.frame_id = "world";
-
+//
 //     nav_msgs::msg::Path path_rviz_msg;
 //     path_rviz_msg.header.stamp = stamp;
 //     path_rviz_msg.header.frame_id = "world";
-
+//
 //     for(std::size_t i = 0; i<map.size();i++){
 //         double dx = map[i].x - carData.car_x;
 //         double dy = map[i].y - carData.car_y;
-
+//
 //         double forward =
 //             dx * std::cos(carData.yaw) +
 //             dy * std::sin(carData.yaw);
-
+//
 //         if(forward < 0.0)
 //             continue;
-
-
+//
+//
 //         // if(map[i].x < carData.car_x && map[i].y < carData.car_y)//Corrigir 
 //         //     continue;
-        
+//      
 //         if(dist > 10000){
 //             RCLCPP_INFO(this->get_logger(), "Enviar");
 //             path_control_pub->publish(pathSpline_msg);
 //             path_vis_pub->publish(path_rviz_msg);
 //             break;
 //         }
-
+//
 //         for(std::size_t j = 1; j<map.size();j++){
 //             double d = distance(map[i].x, map[i].y, map[j].x,map[j].y);
-
+//
 //             if(d <= 0.5){
 //                 RCLCPP_INFO(this->get_logger(),"Ponto antes x: %.2f y:%.2f PONTO DEPOIS x: %.2f y: %.2f", map[i].x, map[i].y, map[j].x, map[j].y);
-
+//
 //                 geometry_msgs::msg::PoseStamped pose;
 //                 pose = createPoseMsg(map[j].x,map[j].y,
 //                     carData.roll, carData.pitch,carData.yaw,
 //                     stamp); 
-
+//
 //                 //MEGA DEBUG MESSAGE
 //                 // RCLCPP_INFO(this->get_logger(), 
 //                 // "Novo Ponto Adicionado:\n"
@@ -78,7 +78,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
 //                 // map[j].x,
 //                 // map[j].y,
 //                 // map[j].cur);
-
+//
 //                 pathSpline_msg.poses.push_back(pose);
 //                 pathSpline_msg.curvature.push_back(map[j].cur);
 //                 path_rviz_msg.poses.push_back(pose);
@@ -221,10 +221,16 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 
         double dist_b = std::numeric_limits<double>::max();
         double dist_y = std::numeric_limits<double>::max();
+        double dist_o = std::numeric_limits<double>::max();
+
         int blue_index = -1;
         int yellow_index = -1;
 
-        double tmp_distance_blue = 10, tmp_distance_yellow = 10;
+        //Index of the first 2 orange cones(gates)
+        int orange_gate_1 = 1;
+        int orange_gate_2 = 1;
+        
+        double tmp_distance_blue = 10, tmp_distance_yellow = 10, tmp_distance_orange = 10;
         if(!cones_s.empty()){
             for (size_t i = 0; i < cones_s.size(); i++){
                 if (cones_s[i].BLUE == 2){
@@ -241,11 +247,30 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
                         yellow_index = i;
                     }
                 }
+                if (cones_s[i].ORANGE_SMALL == 3){
+                    tmp_distance_orange = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
+                    if (tmp_distance_orange < dist_o){
+                        dist_o = tmp_distance_orange;
+                        if(orange_gate_1 == -1)
+                        {
+                            orange_gate_1 = i;
+
+                        }
+                        if (orange_gate_2 == -1)
+                        {
+                            orange_gate_2 == i;
+                        }
+                    }
+                }
             }
             //Calcula o ponto medio dos cones mais proximos ao caroo
-            if (blue_index != -1 && yellow_index != -1) 
+            if (blue_index != -1 && yellow_index != -1 && orange_gate_1 != -1 && orange_gate_2 != -1) 
             {
                 RCLCPP_INFO(this->get_logger(), "Tou aqui");
+                
+                RCLCPP_INFO(this->get_logger(), "gate 1: %.2f %.2f \n gate2: %.2f %.2f",cones_s[orange_gate_1].position.x,
+                cones_s[orange_gate_1].position.y, cones_s[orange_gate_2].position.x, cones_s[orange_gate_2].position.y);
+
                 map_localizer(msg,blue_index,yellow_index,&map);
                 map_Localized = true;
             }
