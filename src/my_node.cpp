@@ -251,15 +251,14 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
                     tmp_distance_orange = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
                     if (tmp_distance_orange < dist_o){
                         dist_o = tmp_distance_orange;
-                        if(orange_gate_1 == -1)
+                        if(orange_gate_1 == -1 && orange_gate_2 == -1)
                         {
                             orange_gate_1 = i;
 
+                        }else{
+                            orange_gate_2 = i;
                         }
-                        if (orange_gate_2 == -1)
-                        {
-                            orange_gate_2 == i;
-                        }
+                        
                     }
                 }
             }
@@ -268,10 +267,10 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
             {
                 RCLCPP_INFO(this->get_logger(), "Tou aqui");
                 
-                RCLCPP_INFO(this->get_logger(), "gate 1: %.2f %.2f \n gate2: %.2f %.2f",cones_s[orange_gate_1].position.x,
-                cones_s[orange_gate_1].position.y, cones_s[orange_gate_2].position.x, cones_s[orange_gate_2].position.y);
+            //  /  RCLCPP_INFO(this->get_logger(), "gate 1: %.2f %.2f \n gate2: %.2f %.2f",cones_s[orange_gate_1].position.x, 
+            //     cones_s[orange_gate_1].position.y, cones_s[orange_gate_2].position.x, cones_s[orange_gate_2].position.y);
 
-                map_localizer(msg,blue_index,yellow_index,&map);
+                map_localizer(msg,blue_index,yellow_index,orange_gate_1,orange_gate_2,&map);
                 map_Localized = true;
             }
         }
