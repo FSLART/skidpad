@@ -16,86 +16,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
     double total_dist = 0;
 };
 
-//Responsible for sending planned path marker and planned path topic
-// void skidpad_node::SplitLineSender(CarData carData){
-//     double dist = 0;
-//     auto stamp = this->now();
-//  
-//     //messages inicialization
-//     geometry_msgs::msg::PoseStamped pose;
-//     lart_msgs::msg::PathSpline pathSpline_msg;
-//
-//     pathSpline_msg.header.stamp = stamp;
-//     pathSpline_msg.header.frame_id = "world";
-//
-//     nav_msgs::msg::Path path_rviz_msg;
-//     path_rviz_msg.header.stamp = stamp;
-//     path_rviz_msg.header.frame_id = "world";
-//
-//     for(std::size_t i = 0; i<map.size();i++){
-//         double dx = map[i].x - carData.car_x;
-//         double dy = map[i].y - carData.car_y;
-//
-//         double forward =
-//             dx * std::cos(carData.yaw) +
-//             dy * std::sin(carData.yaw);
-//
-//         if(forward < 0.0)
-//             continue;
-//
-//
-//         // if(map[i].x < carData.car_x && map[i].y < carData.car_y)//Corrigir 
-//         //     continue;
-//      
-//         if(dist > 10000){
-//             RCLCPP_INFO(this->get_logger(), "Enviar");
-//             path_control_pub->publish(pathSpline_msg);
-//             path_vis_pub->publish(path_rviz_msg);
-//             break;
-//         }
-//
-//         for(std::size_t j = 1; j<map.size();j++){
-//             double d = distance(map[i].x, map[i].y, map[j].x,map[j].y);
-//
-//             if(d <= 0.5){
-//                 RCLCPP_INFO(this->get_logger(),"Ponto antes x: %.2f y:%.2f PONTO DEPOIS x: %.2f y: %.2f", map[i].x, map[i].y, map[j].x, map[j].y);
-//
-//                 geometry_msgs::msg::PoseStamped pose;
-//                 pose = createPoseMsg(map[j].x,map[j].y,
-//                     carData.roll, carData.pitch,carData.yaw,
-//                     stamp); 
-//
-//                 //MEGA DEBUG MESSAGE
-//                 // RCLCPP_INFO(this->get_logger(), 
-//                 // "Novo Ponto Adicionado:\n"
-//                 // "  Car Pos x:%.2f   y:%.2f"
-//                 // "  Distância Total: %.2f\n"
-//                 // "  Ponto a atual a envia x:%.2f y:%.2f"
-//                 // "  Curvatura: %.4f\n",
-//                 // carData.car_x,
-//                 // carData.car_y,
-//                 // dist,
-//                 // map[j].x,
-//                 // map[j].y,
-//                 // map[j].cur);
-//
-//                 pathSpline_msg.poses.push_back(pose);
-//                 pathSpline_msg.curvature.push_back(map[j].cur);
-//                 path_rviz_msg.poses.push_back(pose);
-//                 dist += d;
-//                 pathSpline_msg.distance.push_back(dist);
-//                 if(pathSpline_msg.poses.size() >= 40){
-//                     RCLCPP_INFO(this->get_logger(), "Enviar");
-//                     path_control_pub->publish(pathSpline_msg);
-//                     path_vis_pub->publish(path_rviz_msg);
-//                     break;
-//                 }
-//             }
-//         }
-//     }
-// }
-
-void skidpad_node::SplitLineSender(CarData carData){
+void skidpad_node::SplitLineSender(this->car this->car){
     auto stamp = this->now();
     
     // 1. Inicialização das mensagens
@@ -112,11 +33,11 @@ void skidpad_node::SplitLineSender(CarData carData){
     // 2. Encontrar o ponto de partida (o mais próximo que esteja à frente do carro)
     int start_idx = -1;
     for(std::size_t i = 0; i < map.size(); i++){
-        double dx = map[i].x - carData.car_x;
-        double dy = map[i].y - carData.car_y;
+        double dx = map[i].x - this->car.car_x;
+        double dy = map[i].y - this->car.car_y;
         
         // Produto escalar simples para saber se o ponto está à frente
-        double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
+        double forward = dx * std::cos(this->car.yaw) + dy * std::sin(this->car.yaw);
 
         if(forward > 0.0){
             start_idx = i;
@@ -137,7 +58,7 @@ void skidpad_node::SplitLineSender(CarData carData){
     // Adicionar o primeiro ponto à mensagem
     geometry_msgs::msg::PoseStamped pose = createPoseMsg(
         map[start_idx].x, map[start_idx].y,
-        carData.roll, carData.pitch, carData.yaw, stamp
+        this->car.roll, this->car.pitch, this->car.yaw, stamp
     );
     pathSpline_msg.poses.push_back(pose);
     pathSpline_msg.curvature.push_back(map[start_idx].cur);
@@ -157,7 +78,7 @@ void skidpad_node::SplitLineSender(CarData carData){
         if(d >= 0.5){
             pose = createPoseMsg(
                 map[i].x, map[i].y,
-                carData.roll, carData.pitch, carData.yaw, stamp
+                this->car.roll, this->car.pitch, this->car.yaw, stamp
             );
 
             pathSpline_msg.poses.push_back(pose);
@@ -189,11 +110,10 @@ void skidpad_node::SplitLineSender(CarData carData){
 
 //Sem localizar o mapa primeiro
 void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
-    CarData carData;
     
     
-    carData.car_x = msg->pose.position.x;
-    carData.car_y = msg->pose.position.y;
+    this->car.car_x = msg->pose.position.x;
+    this->car.car_y = msg->pose.position.y;
 
     tf2::Quaternion q(
     msg->pose.orientation.x,
@@ -203,10 +123,10 @@ void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::Share
     );
 
     tf2::Matrix3x3 m(q);
-    m.getRPY(carData.roll, carData.pitch, carData.yaw);
+    m.getRPY(this->car.roll, this->car.pitch, this->car.yaw);
     
     if(map_Localized){
-        SplitLineSender(carData);
+        SplitLineSender(this->car);
     }else{
         RCLCPP_INFO(this->get_logger(), "Map is not localized");
     }
