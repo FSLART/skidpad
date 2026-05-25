@@ -112,7 +112,6 @@ void skidpad_node::SplitLineSender(CarData carData){
 void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
     CarData carData;
     
-    
     carData.car_x = msg->pose.position.x;
     carData.car_y = msg->pose.position.y;
 

@@ -24,7 +24,7 @@ class skidpad_node : public rclcpp::Node
         double total_dist = 0;
         bool map_Localized = false;
 
-
+        
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_vis_pub;
         rclcpp::Publisher<lart_msgs::msg::PathSpline>::SharedPtr path_control_pub; 
 
