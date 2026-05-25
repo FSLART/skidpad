@@ -16,7 +16,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
     double total_dist = 0;
 };
 
-void skidpad_node::SplitLineSender(this->car this->car){
+void skidpad_node::SplitLineSender(CarData carData){
     auto stamp = this->now();
     
     // 1. Inicialização das mensagens
@@ -33,11 +33,11 @@ void skidpad_node::SplitLineSender(this->car this->car){
     // 2. Encontrar o ponto de partida (o mais próximo que esteja à frente do carro)
     int start_idx = -1;
     for(std::size_t i = 0; i < map.size(); i++){
-        double dx = map[i].x - this->car.car_x;
-        double dy = map[i].y - this->car.car_y;
+        double dx = map[i].x - carData.car_x;
+        double dy = map[i].y - carData.car_y;
         
         // Produto escalar simples para saber se o ponto está à frente
-        double forward = dx * std::cos(this->car.yaw) + dy * std::sin(this->car.yaw);
+        double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
 
         if(forward > 0.0){
             start_idx = i;
@@ -58,7 +58,7 @@ void skidpad_node::SplitLineSender(this->car this->car){
     // Adicionar o primeiro ponto à mensagem
     geometry_msgs::msg::PoseStamped pose = createPoseMsg(
         map[start_idx].x, map[start_idx].y,
-        this->car.roll, this->car.pitch, this->car.yaw, stamp
+        carData.roll, carData.pitch, carData.yaw, stamp
     );
     pathSpline_msg.poses.push_back(pose);
     pathSpline_msg.curvature.push_back(map[start_idx].cur);
@@ -78,7 +78,7 @@ void skidpad_node::SplitLineSender(this->car this->car){
         if(d >= 0.5){
             pose = createPoseMsg(
                 map[i].x, map[i].y,
-                this->car.roll, this->car.pitch, this->car.yaw, stamp
+                carData.roll, carData.pitch, carData.yaw, stamp
             );
 
             pathSpline_msg.poses.push_back(pose);
@@ -110,10 +110,10 @@ void skidpad_node::SplitLineSender(this->car this->car){
 
 //Sem localizar o mapa primeiro
 void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
+    CarData carData;
     
-    
-    this->car.car_x = msg->pose.position.x;
-    this->car.car_y = msg->pose.position.y;
+    carData.car_x = msg->pose.position.x;
+    carData.car_y = msg->pose.position.y;
 
     tf2::Quaternion q(
     msg->pose.orientation.x,
@@ -123,10 +123,10 @@ void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::Share
     );
 
     tf2::Matrix3x3 m(q);
-    m.getRPY(this->car.roll, this->car.pitch, this->car.yaw);
+    m.getRPY(carData.roll, carData.pitch, carData.yaw);
     
     if(map_Localized){
-        SplitLineSender(this->car);
+        SplitLineSender(carData);
     }else{
         RCLCPP_INFO(this->get_logger(), "Map is not localized");
     }
