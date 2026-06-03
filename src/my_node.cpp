@@ -16,7 +16,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
     double total_dist = 0;
 };
 
-void skidpad_node::SplitLineSender(CarData carData){
+void skidpad_node::SplitLineSender(){//CarData carData){
     auto stamp = this->now();
     
     // 1. Inicialização das mensagens
@@ -80,7 +80,7 @@ void skidpad_node::SplitLineSender(CarData carData){
                 map[i].x, map[i].y,
                 carData.roll, carData.pitch, carData.yaw, stamp
             );
-
+            pose = skidpad_node::track_correction(pose);
             pathSpline_msg.poses.push_back(pose);
             pathSpline_msg.curvature.push_back(map[i].cur);
             
@@ -110,8 +110,6 @@ void skidpad_node::SplitLineSender(CarData carData){
 
 //Sem localizar o mapa primeiro
 void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
-    CarData carData;
-    
     carData.car_x = msg->pose.position.x;
     carData.car_y = msg->pose.position.y;
 
@@ -126,7 +124,7 @@ void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::Share
     m.getRPY(carData.roll, carData.pitch, carData.yaw);
     
     if(map_Localized){
-        SplitLineSender(carData);
+        SplitLineSender();
     }else{
         RCLCPP_INFO(this->get_logger(), "Map is not localized");
     }
@@ -136,6 +134,8 @@ void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::Share
 void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr msg)
 {
     auto cones_s = msg->cones;
+    skidpad_node::coneArray = msg;
+
     if(!map_Localized){
         RCLCPP_INFO(this->get_logger(), "Trying to localize the car");
 
@@ -195,6 +195,58 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
             }
         }
     }
+}
+
+
+geometry_msgs::msg::PoseStamped skidpad_node::track_correction(geometry_msgs::msg::PoseStamped pose){
+    auto cones = coneArray->cones; 
+    std::pair<double, double> pose_pos = {pose.pose.position.x, pose.pose.position.y};
+    int blue_index = -1, yellow_index = -1;
+
+    //Encontra os cones azuis e amarelos mais perto do pose
+    double tmp_distance_blue = 0, tmp_distance_yellow = 0;
+    if(!cones.empty()){
+        double dist_b = std::numeric_limits<double>::max();
+        double dist_y = std::numeric_limits<double>::max();
+        for (size_t i = 0; i < cones.size(); i++){
+            if (cones[i].BLUE == 2){
+                tmp_distance_blue = distance(cones[i].position.x, cones[i].position.y, pose_pos.first,pose_pos.second);
+                if (tmp_distance_blue < dist_b){
+                    dist_b = tmp_distance_blue;
+                    blue_index = i;
+                }
+            }
+            if (cones[i].YELLOW == 1){
+                tmp_distance_yellow = distance(cones[i].position.x, cones[i].position.y, pose_pos.first, pose_pos.second);
+                if (tmp_distance_yellow < dist_y){
+                    dist_y = tmp_distance_yellow;
+                    yellow_index = i;
+                }
+            }
+        }
+
+        //Faz o ponto medio dos cones
+        std::pair<double, double> midPoint;
+        midPoint.first  = (cones[blue_index].position.x + cones[yellow_index].position.x)/2;
+        midPoint.second = (cones[blue_index].position.y + cones[yellow_index].position.y)/2;
+        
+        double poseMidpoint_distance =  distance(midPoint.first,midPoint.second,pose_pos.first,pose_pos.second);
+        //Se a distancia for menos que x vai puxar (Levar em conta o tamanho do carro e a largura da track)
+        double threshold = 1.50-middleCar;
+        if(poseMidpoint_distance >= threshold){
+            double correction_x = midPoint.first - pose_pos.first;
+            double correction_y = midPoint.second - pose_pos.second;
+
+            double target_yaw = std::atan2(correction_y, correction_x);
+
+            pose.pose.position.x = correction_x;
+            pose.pose.position.y = correction_y;
+            //pose.pose.orientation.
+        }else{
+            return pose;
+        }
+    }
+    return pose;
 }
 
 

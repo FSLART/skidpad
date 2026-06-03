@@ -30,7 +30,7 @@ geometry_msgs::msg::PoseStamped createPoseMsg(
 
 //rotação n tá a rodar bem as cenas 
 //TEORIA: O PATH N TÀ NO MEIO DOS CONES DE FORMA PERFEITA 
-std::pair<double, double> map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_index,int yellow_index, std::vector<PathStruct> *map){
+void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_index,int yellow_index,int gate_index1, int gate_index2, std::vector<PathStruct> *map){
     auto cones_s = msg->cones;
     std::vector<PathStruct> temp_map = *map;
 
@@ -40,8 +40,15 @@ std::pair<double, double> map_localizer(const lart_msgs::msg::ConeArray::SharedP
     double yx = cones_s[yellow_index].position.x;
     double yy = cones_s[yellow_index].position.y;
 
-    double midpoint_x = (bx+yx)/2;
-    double midpoint_y = (by+yy)/2;
+    double gate1_x = cones_s[gate_index1].position.x;
+    double gate1_y = cones_s[gate_index1].position.y;
+
+    double gate2_x = cones_s[gate_index2].position.x;
+    double gate2_y = cones_s[gate_index2].position.y;
+
+
+    double midpoint_x = 0;//(gate1_x+gate2_x)/2;
+    double midpoint_y = (gate1_y+gate2_y)/2;
 
     double tx = (bx + yx) / 2.0;
     double ty = (by + yy) / 2.0;
@@ -57,17 +64,11 @@ std::pair<double, double> map_localizer(const lart_msgs::msg::ConeArray::SharedP
     for(PathStruct& path : temp_map){
         double original_x = path.x;
 
-        // path.x = original_x * cos_tr - path.y * sin_tr+tx;
-        // path.y = original_x * sin_tr + path.y * cos_tr+ty;
-
-        path.x = (original_x + midpoint_x) * cos_tr - (path.y + midpoint_y) * sin_tr + tx;
-        path.y = (original_x + midpoint_x) * sin_tr + (path.y + midpoint_y) * cos_tr + ty;
+        path.x = (original_x + midpoint_x) * cos_tr - (path.y - midpoint_y) * sin_tr + tx;
+        path.y = (original_x + midpoint_x) * sin_tr + (path.y - midpoint_y) * cos_tr + ty;
     }
 
     *map = temp_map;
-
-    std::pair<double,double> pos_path = {temp_map[0].x, temp_map[0].y};
-    return pos_path;
 }
 
 std::vector<PathStruct> file_loader(std::string fileName){

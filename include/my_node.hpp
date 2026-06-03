@@ -23,8 +23,10 @@ class skidpad_node : public rclcpp::Node
         std::vector<PathStruct> map;
         double total_dist = 0;
         bool map_Localized = false;
+        CarData carData;
+        lart_msgs::msg::ConeArray::SharedPtr coneArray;
+        const double middleCar = 0.7;
 
-        
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_vis_pub;
         rclcpp::Publisher<lart_msgs::msg::PathSpline>::SharedPtr path_control_pub; 
 
@@ -34,5 +36,6 @@ class skidpad_node : public rclcpp::Node
         void positionCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
         void coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr msg);
         //enviar isto num struct é melhor roll pitch e yaw 
-        void SplitLineSender(CarData carData);
+        void SplitLineSender();
+        geometry_msgs::msg::PoseStamped track_correction(geometry_msgs::msg::PoseStamped pose);
 };
