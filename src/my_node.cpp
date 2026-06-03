@@ -151,7 +151,8 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
         int orange_gate_2 = 1;
         
         double tmp_distance_blue = 10, tmp_distance_yellow = 10, tmp_distance_orange = 10;
-        if(!cones_s.empty()){
+        if(!cones_s.empty())
+        {
             for (size_t i = 0; i < cones_s.size(); i++){
                 if (cones_s[i].BLUE == 2){
                     tmp_distance_blue = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);//Verificar se o carro começa em 0
@@ -234,6 +235,14 @@ geometry_msgs::msg::PoseStamped skidpad_node::track_correction(geometry_msgs::ms
         //Se a distancia for menos que x vai puxar (Levar em conta o tamanho do carro e a largura da track)
         double threshold = 1.50-middleCar;
         if(poseMidpoint_distance >= threshold){
+            RCLCPP_INFO(this->get_logger(), 
+            "Tá fora da pista\n"
+            "cones Usados para essa conta:\n"
+            "BLUE:  %.2f, %.2f \n"
+            "YELLOW: %.2f, %.2f",
+            cones[blue_index].position.x, cones[blue_index].position.y,
+            cones[yellow_index].position.x, cones[yellow_index].position.y);
+
             double correction_x = midPoint.first - pose_pos.first;
             double correction_y = midPoint.second - pose_pos.second;
 
@@ -244,7 +253,7 @@ geometry_msgs::msg::PoseStamped skidpad_node::track_correction(geometry_msgs::ms
             //pose.pose.orientation.
         }else{
             return pose;
-        }
+        } 
     }
     return pose;
 }
