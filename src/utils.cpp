@@ -106,3 +106,57 @@ std::vector<PathStruct> file_loader(std::string fileName){
     }
     return skidpad_map;
 }
+
+
+//Return values are passed through pointers 
+void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_index, int *yellow_index, int *orange_index, int *orange_gate_1, int *orange_gate_2){
+    auto cones_s = msg->cones;
+
+    double dist_b = std::numeric_limits<double>::max();
+    double dist_y = std::numeric_limits<double>::max();
+    double dist_o = std::numeric_limits<double>::max();
+
+    int blue_index = -1;
+    int yellow_index = -1;
+
+    //Index of the first 2 orange cones(gates)
+    int orange_gate_1 = 1;
+    int orange_gate_2 = 1;
+    
+    double tmp_distance_blue = 10, tmp_distance_yellow = 10, tmp_distance_orange = 10;
+    if(!cones_s.empty())
+    {
+        for (size_t i = 0; i < cones_s.size(); i++){
+            if (cones_s[i].BLUE == 2){
+                tmp_distance_blue = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);//Verificar se o carro começa em 0
+                if (tmp_distance_blue < dist_b){
+                    dist_b = tmp_distance_blue;
+                    *blue_index = i;
+                }
+            }
+            if (cones_s[i].YELLOW == 1){
+                tmp_distance_yellow = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
+                if (tmp_distance_yellow < dist_y){
+                    dist_y = tmp_distance_yellow;
+                    *yellow_index = i;
+                }
+            }
+            if (cones_s[i].ORANGE_SMALL == 3){
+                tmp_distance_orange = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
+                if (tmp_distance_orange < dist_o){
+                    dist_o = tmp_distance_orange;
+                    if(orange_gate_1 == -1 && orange_gate_2 == -1)
+                    {
+                        *orange_gate_1 = i;
+
+                    }else{
+                        *orange_gate_2 = i;
+                    }
+                    
+                }
+            }
+        }
+    }else{
+        return;
+    }
+}
