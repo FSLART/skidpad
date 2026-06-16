@@ -80,6 +80,7 @@ void skidpad_node::SplitLineSender(){//CarData carData){
                 map[i].x, map[i].y,
                 carData.roll, carData.pitch, carData.yaw, stamp
             );
+            //Verification zone
             pose = skidpad_node::track_correction(pose);
             pathSpline_msg.poses.push_back(pose);
             pathSpline_msg.curvature.push_back(map[i].cur);
@@ -107,7 +108,7 @@ void skidpad_node::SplitLineSender(){//CarData carData){
     }
 }
 
-
+ 
 //Sem localizar o mapa primeiro
 void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
     carData.car_x = msg->pose.position.x;
@@ -199,62 +200,155 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 }
 
 
-geometry_msgs::msg::PoseStamped skidpad_node::track_correction(geometry_msgs::msg::PoseStamped pose){
-    auto cones = coneArray->cones; 
-    std::pair<double, double> pose_pos = {pose.pose.position.x, pose.pose.position.y};
-    int blue_index = -1, yellow_index = -1;
+// geometry_msgs::msg::PoseStamped skidpad_node::track_correction(geometry_msgs::msg::PoseStamped pose){
+//     auto cones = coneArray->cones; 
+//     std::pair<double, double> pose_pos = {pose.pose.position.x, pose.pose.position.y};
+//     int blue_index = -1, yellow_index = -1;
+//
+//     //Encontra os cones azuis e amarelos mais perto do pose
+//     double tmp_distance_blue = 0, tmp_distance_yellow = 0;
+//     if(!cones.empty()){
+//         double dist_b = std::numeric_limits<double>::max();
+//         double dist_y = std::numeric_limits<double>::max();
+//         for (size_t i = 0; i < cones.size(); i++){
+//             if (cones[i].BLUE == 2){
+//                 tmp_distance_blue = distance(cones[i].position.x, cones[i].position.y, pose_pos.first,pose_pos.second);
+//                 if (tmp_distance_blue < dist_b){
+//                     dist_b = tmp_distance_blue;
+//                     blue_index = i;
+//                 }
+//             }
+//             if (cones[i].YELLOW == 1){
+//                 tmp_distance_yellow = distance(cones[i].position.x, cones[i].position.y, pose_pos.first, pose_pos.second);
+//                 if (tmp_distance_yellow < dist_y){
+//                     dist_y = tmp_distance_yellow;
+//                     yellow_index = i;
+//                 }
+//             }
+//         }
+//
+//         //Faz o ponto medio dos cones
+//         std::pair<double, double> midPoint;
+//         midPoint.first  = (cones[blue_index].position.x + cones[yellow_index].position.x)/2;
+//         midPoint.second = (cones[blue_index].position.y + cones[yellow_index].position.y)/2;
+//        
+//         double poseMidpoint_distance =  distance(midPoint.first,midPoint.second,pose_pos.first,pose_pos.second);
+//         //Se a distancia for menos que x vai puxar (Levar em conta o tamanho do carro e a largura da track)
+//         double threshold = 1.50-middleCar;
+//         if(poseMidpoint_distance >= threshold){
+//             RCLCPP_INFO(this->get_logger(), 
+//             "Tá fora da pista\n"
+//             "cones Usados para essa conta:\n"
+//             "BLUE:  %.2f, %.2f \n"
+//             "YELLOW: %.2f, %.2f",
+//             cones[blue_index].position.x, cones[blue_index].position.y,
+//             cones[yellow_index].position.x, cones[yellow_index].position.y);
+//
+//             double correction_x = midPoint.first - pose_pos.first;
+//             double correction_y = midPoint.second - pose_pos.second;
+//
+//             double target_yaw = std::atan2(correction_y, correction_x);
+//
+//             pose.pose.position.x += correction_x;
+//             pose.pose.position.y += correction_y;
+//             //pose.pose.orientation.
+//         }else{
+//             return pose;
+//         } 
+//     }
+//     return pose;
+// }
 
-    //Encontra os cones azuis e amarelos mais perto do pose
-    double tmp_distance_blue = 0, tmp_distance_yellow = 0;
-    if(!cones.empty()){
-        double dist_b = std::numeric_limits<double>::max();
-        double dist_y = std::numeric_limits<double>::max();
-        for (size_t i = 0; i < cones.size(); i++){
-            if (cones[i].BLUE == 2){
-                tmp_distance_blue = distance(cones[i].position.x, cones[i].position.y, pose_pos.first,pose_pos.second);
-                if (tmp_distance_blue < dist_b){
-                    dist_b = tmp_distance_blue;
-                    blue_index = i;
-                }
-            }
-            if (cones[i].YELLOW == 1){
-                tmp_distance_yellow = distance(cones[i].position.x, cones[i].position.y, pose_pos.first, pose_pos.second);
-                if (tmp_distance_yellow < dist_y){
-                    dist_y = tmp_distance_yellow;
-                    yellow_index = i;
-                }
+
+geometry_msgs::msg::PoseStamped skidpad_node::track_correction(
+    geometry_msgs::msg::PoseStamped pose)
+{
+    auto cones = coneArray->cones;
+
+    if(cones.empty())
+        return pose;
+
+    std::pair<double,double> pose_pos = {
+        pose.pose.position.x,
+        pose.pose.position.y
+    };
+
+    int blue_index = -1;
+    int yellow_index = -1;
+
+    double dist_b = std::numeric_limits<double>::max();
+    double dist_y = std::numeric_limits<double>::max();
+
+    for(size_t i = 0; i < cones.size(); i++)
+    {
+        if(cones[i].BLUE == 2)
+        {
+            double d = distance(
+                cones[i].position.x,
+                cones[i].position.y,
+                pose_pos.first,
+                pose_pos.second);
+
+            if(d < dist_b)
+            {
+                dist_b = d;
+                blue_index = i;
             }
         }
 
-        //Faz o ponto medio dos cones
-        std::pair<double, double> midPoint;
-        midPoint.first  = (cones[blue_index].position.x + cones[yellow_index].position.x)/2;
-        midPoint.second = (cones[blue_index].position.y + cones[yellow_index].position.y)/2;
-        
-        double poseMidpoint_distance =  distance(midPoint.first,midPoint.second,pose_pos.first,pose_pos.second);
-        //Se a distancia for menos que x vai puxar (Levar em conta o tamanho do carro e a largura da track)
-        double threshold = 1.50-middleCar;
-        if(poseMidpoint_distance >= threshold){
-            RCLCPP_INFO(this->get_logger(), 
-            "Tá fora da pista\n"
-            "cones Usados para essa conta:\n"
-            "BLUE:  %.2f, %.2f \n"
-            "YELLOW: %.2f, %.2f",
-            cones[blue_index].position.x, cones[blue_index].position.y,
-            cones[yellow_index].position.x, cones[yellow_index].position.y);
+        if(cones[i].YELLOW == 1)
+        {
+            double d = distance(
+                cones[i].position.x,
+                cones[i].position.y,
+                pose_pos.first,
+                pose_pos.second);
 
-            double correction_x = midPoint.first - pose_pos.first;
-            double correction_y = midPoint.second - pose_pos.second;
-
-            double target_yaw = std::atan2(correction_y, correction_x);
-
-            pose.pose.position.x = correction_x;
-            pose.pose.position.y = correction_y;
-            //pose.pose.orientation.
-        }else{
-            return pose;
-        } 
+            if(d < dist_y)
+            {
+                dist_y = d;
+                yellow_index = i;
+            }
+        }
     }
+
+    if(blue_index == -1 || yellow_index == -1)
+        return pose;
+
+    // midpoint entre os cones mais próximos
+    double mid_x =
+        (cones[blue_index].position.x +
+         cones[yellow_index].position.x) * 0.25;
+
+    double mid_y =
+        (cones[blue_index].position.y +
+         cones[yellow_index].position.y) * 0.25;
+
+    double correction_x = mid_x - pose_pos.first;
+    double correction_y = mid_y - pose_pos.second;
+
+    double error =
+        std::sqrt(correction_x * correction_x +
+                  correction_y * correction_y);
+
+    double threshold = 1.50 - middleCar;
+
+    if(error < threshold)
+        return pose;
+
+    // ganho pequeno para evitar saltos
+    const double gain = 0.20;
+
+    pose.pose.position.x += gain * correction_x;
+    pose.pose.position.y += gain * correction_y;
+
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Track correction | error=%.3f | corr=(%.3f, %.3f)",
+        error,
+        correction_x,
+        correction_y);
+
     return pose;
 }
 
