@@ -68,12 +68,17 @@ void skidpad_node::SplitLineSender(){
         }
     }
 
+    RCLCPP_WARN(this->get_logger(), 
+    "last_idx=%zu, search_window=%zu, car_x=%.2f, car_y=%.2f, yaw=%.2f", 
+    last_idx, search_window, carData.car_x, carData.car_y, carData.yaw);
+
     if(start_idx == -1) {
         RCLCPP_WARN(this->get_logger(), "Nenhum ponto do mapa encontrado à frente do carro!");
         return; 
     }
 
     last_idx = start_idx; // guardar para a próxima iteração
+
 
 
     // Variáveis para controlar a distância entre pontos
