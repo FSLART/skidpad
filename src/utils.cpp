@@ -109,52 +109,63 @@ std::vector<PathStruct> file_loader(std::string fileName){
 
 
 //Return values are passed through pointers 
-void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_index_o, int *yellow_index_o, int *orange_index_o, int *orange_gate_1_o, int *orange_gate_2_o){
+void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_index_o, int *yellow_index_o, int *orange_gate_1_o, int *orange_gate_2_o){
+    if (blue_index_o)     *blue_index_o = -1;
+    if (yellow_index_o)   *yellow_index_o = -1;
+    if (orange_gate_1_o)  *orange_gate_1_o = -1;
+    if (orange_gate_2_o)  *orange_gate_2_o = -1;
+
+
     auto cones_s = msg->cones;
+    if(cones_s.empty()) {
+        return;
+    }
 
     double dist_b = std::numeric_limits<double>::max();
     double dist_y = std::numeric_limits<double>::max();
-    double dist_o = std::numeric_limits<double>::max();
-
-    int blue_index = -1;
-    int yellow_index = -1;
-
-    //Index of the first 2 orange cones(gates)
-    int orange_gate_1 = 1;
-    int orange_gate_2 = 1;
     
-    double tmp_distance_blue = 10, tmp_distance_yellow = 10, tmp_distance_orange = 10;
-    if(!cones_s.empty())
-    {
-        for (size_t i = 0; i < cones_s.size(); i++){
-            if (cones_s[i].BLUE == 2){
-                tmp_distance_blue = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);//Verificar se o carro começa em 0
-                if (tmp_distance_blue < dist_b){
-                    dist_b = tmp_distance_blue;
-                    *blue_index_o = i;
-                }
-            }
-            if (cones_s[i].YELLOW == 1){
-                tmp_distance_yellow = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
-                if (tmp_distance_yellow < dist_y){
-                    dist_y = tmp_distance_yellow;
-                    *yellow_index_o = i;
-                }
-            }
-            if (cones_s[i].ORANGE_SMALL == 3){
-                tmp_distance_orange = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
-                if (tmp_distance_orange < dist_o){
-                    dist_o = tmp_distance_orange;
-                    if(orange_gate_1 == -1 && orange_gate_2 == -1)
-                    {
-                        *orange_gate_1_o = i;
-                    }else{
-                        *orange_gate_2_o = i;
-                    }
-                }
+    // Precisamos de duas distâncias para os dois cones laranja mais próximos
+    double dist_o1 = std::numeric_limits<double>::max();
+    double dist_o2 = std::numeric_limits<double>::max();
+
+    for (size_t i = 0; i < cones_s.size(); i++){
+        
+        // Azul (Normalmente a cor/id é um Enum ou Int, assume-se que .color == 2 ou similar, mantive a tua lógica)
+        if (cones_s[i].BLUE == 2){
+            double tmp_dist = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
+            if (tmp_dist < dist_b){
+                dist_b = tmp_dist;
+                *blue_index_o = i;
             }
         }
-    }else{
-        return;
+        
+        // Amarelo
+        if (cones_s[i].YELLOW == 1){
+            double tmp_dist = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
+            if (tmp_dist < dist_y){
+                dist_y = tmp_dist;
+                *yellow_index_o = i;
+            }
+        }
+        
+        // Laranja
+        if (cones_s[i].ORANGE_SMALL == 3){
+            double tmp_dist = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
+            
+            if (tmp_dist < dist_o1) {
+                // O antigo 1º mais próximo passa a ser o 2º mais próximo
+                dist_o2 = dist_o1;
+                *orange_gate_2_o = *orange_gate_1_o;
+                
+                // Este passa a ser o novo 1º mais próximo
+                dist_o1 = tmp_dist;
+                *orange_gate_1_o = i;
+            } 
+            else if (tmp_dist < dist_o2) {
+                // É mais distante que o 1º, mas mais perto que o 2º atual
+                dist_o2 = tmp_dist;
+                *orange_gate_2_o = i;
+            }
+        }
     }
 }

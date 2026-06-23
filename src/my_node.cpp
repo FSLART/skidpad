@@ -13,7 +13,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
     this->position_subscriber = this->create_subscription<geometry_msgs::msg::PoseStamped>("/slam/pose", 10, std::bind(&skidpad_node::positionCallback, this, _1));
 
     map = file_loader("skidpad_path.csv");
-    double total_dist = 0;
+    //double total_dist = 0;
 };
 
 void skidpad_node::SplitLineSender(){//CarData carData){
@@ -134,71 +134,34 @@ void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::Share
 
 void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr msg)
 {
+    RCLCPP_INFO(this->get_logger(), "Tou TOU TOU AQUI");
+
     auto cones_s = msg->cones;
     skidpad_node::coneArray = msg;
 
-    if(!map_Localized){
+    if(!map_Localized)
+    {
         RCLCPP_INFO(this->get_logger(), "Trying to localize the car");
-
-        double dist_b = std::numeric_limits<double>::max();
-        double dist_y = std::numeric_limits<double>::max();
-        double dist_o = std::numeric_limits<double>::max();
-
         int blue_index = -1;
         int yellow_index = -1;
+        int orange_index_1 = -1;
+        int orange_index_2 = -1;
 
-        //Index of the first 2 orange cones(gates)
-        int orange_gate_1 = 1;
-        int orange_gate_2 = 1;
-        
-        double tmp_distance_blue = 10, tmp_distance_yellow = 10, tmp_distance_orange = 10;
-        if(!cones_s.empty())
+        nearest_cone(msg,&blue_index,&yellow_index,&orange_index_1,&orange_index_2);
+
+        //Calcula o ponto medio dos cones mais proximos ao caroo
+        if (blue_index != -1 && yellow_index != -1 && orange_index_1 != -1 && orange_index_2 != -1) 
         {
-            for (size_t i = 0; i < cones_s.size(); i++){
-                if (cones_s[i].BLUE == 2){
-                    tmp_distance_blue = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);//Verificar se o carro começa em 0
-                    if (tmp_distance_blue < dist_b){
-                        dist_b = tmp_distance_blue;
-                        blue_index = i;
-                    }
-                }
-                if (cones_s[i].YELLOW == 1){
-                    tmp_distance_yellow = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
-                    if (tmp_distance_yellow < dist_y){
-                        dist_y = tmp_distance_yellow;
-                        yellow_index = i;
-                    }
-                }
-                if (cones_s[i].ORANGE_SMALL == 3){
-                    tmp_distance_orange = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
-                    if (tmp_distance_orange < dist_o){
-                        dist_o = tmp_distance_orange;
-                        if(orange_gate_1 == -1 && orange_gate_2 == -1)
-                        {
-                            orange_gate_1 = i;
+            RCLCPP_INFO(this->get_logger(), "Tou aqui");
 
-                        }else{
-                            orange_gate_2 = i;
-                        }
-                        
-                    }
-                }
-            }
-            //Calcula o ponto medio dos cones mais proximos ao caroo
-            if (blue_index != -1 && yellow_index != -1 && orange_gate_1 != -1 && orange_gate_2 != -1) 
-            {
-                RCLCPP_INFO(this->get_logger(), "Tou aqui");
-                
-            //  /  RCLCPP_INFO(this->get_logger(), "gate 1: %.2f %.2f \n gate2: %.2f %.2f",cones_s[orange_gate_1].position.x, 
-            //     cones_s[orange_gate_1].position.y, cones_s[orange_gate_2].position.x, cones_s[orange_gate_2].position.y);
+            //    RCLCPP_INFO(this->get_logger(), "gate 1: %.2f %.2f \n gate2: %.2f %.2f",cones_s[orange_gate_1].position.x, 
+            //    cones_s[orange_gate_1].position.y, cones_s[orange_gate_2].position.x, cones_s[orange_gate_2].position.y);
 
-                map_localizer(msg,blue_index,yellow_index,orange_gate_1,orange_gate_2,&map);
-                map_Localized = true;
-            }
+            map_localizer(msg,blue_index,yellow_index,orange_index_1,orange_index_2,&map);
+            map_Localized = true;
         }
     }
 }
-
 
 // geometry_msgs::msg::PoseStamped skidpad_node::track_correction(geometry_msgs::msg::PoseStamped pose){
 //     auto cones = coneArray->cones; 
@@ -258,7 +221,6 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 //     }
 //     return pose;
 // }
-
 
 geometry_msgs::msg::PoseStamped skidpad_node::track_correction(
     geometry_msgs::msg::PoseStamped pose)
