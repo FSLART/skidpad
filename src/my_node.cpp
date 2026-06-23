@@ -52,34 +52,29 @@ void skidpad_node::SplitLineSender(){
 
     // membro da classe, inicializado a 0 (ou -1 na primeira chamada)
 // std::size_t last_idx = 0;
-    const std::size_t WINDOW_SIZE = 5; // 10 pontos = 5 metros de busca à frente do último idx
-    int start_idx = -1;
-    std::size_t search_window = std::min(map.size(), last_idx_ + WINDOW_SIZE); 
+// 2. Encontrar o ponto de partida: o mais próximo do carro, com leve preferência
+    // por continuidade de índice (evita saltar para a interseção do skidpad)
+    double best_score = std::numeric_limits<double>::max();
+    std::size_t closest_idx = last_idx_;
 
-    int start_idx = -1;
-    for(std::size_t offset = 0; offset < WINDOW_SIZE; offset++){
-        std::size_t i = (last_idx_ + offset) % map.size();
+    for(std::size_t i = 0; i < map.size(); i++){
         double dx = map[i].x - carData.car_x;
         double dy = map[i].y - carData.car_y;
-        double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
-        
-        RCLCPP_WARN(this->get_logger(), 
-            "i=%zu, map=(%.2f,%.2f), car=(%.2f,%.2f), dx=%.2f, dy=%.2f, forward=%.4f",
-            i, map[i].x, map[i].y, carData.car_x, carData.car_y, dx, dy, forward);
-        
-        if(forward > 0.0){
-            start_idx = static_cast<int>(i);
-            break;
+        double dist = std::sqrt(dx*dx + dy*dy);
+
+        std::size_t idx_diff = (i > last_idx_) ? (i - last_idx_) : (last_idx_ - i);
+        idx_diff = std::min(idx_diff, map.size() - idx_diff); // distância circular
+
+        double score = dist + idx_diff * 0.01;
+
+        if(score < best_score){
+            best_score = score;
+            closest_idx = i;
         }
     }
 
-    if(start_idx == -1) {
-        RCLCPP_WARN(this->get_logger(), "Nenhum ponto do mapa encontrado à frente do carro!");
-        return; 
-    }
-
+    int start_idx = static_cast<int>(closest_idx);
     last_idx_ = start_idx; // guardar para a próxima iteração
-
 
 
     // Variáveis para controlar a distância entre pontos
