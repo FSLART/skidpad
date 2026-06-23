@@ -16,7 +16,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
     //double total_dist = 0;
 };
 
-void skidpad_node::SplitLineSender(){//CarData carData){
+void skidpad_node::SplitLineSender(){
     auto stamp = this->now();
     
     // 1. Inicialização das mensagens
@@ -31,17 +31,40 @@ void skidpad_node::SplitLineSender(){//CarData carData){
     if (map.empty()) return; // Prevenção de segurança
 
     // 2. Encontrar o ponto de partida (o mais próximo que esteja à frente do carro)
+    // int start_idx = -1;
+    // for(std::size_t i = 0; i < map.size(); i++){
+    //     double dx = map[i].x - carData.car_x;
+    //     double dy = map[i].y - carData.car_y;
+        
+    //     // Produto escalar simples para saber se o ponto está à frente
+    //     double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
+
+    //     if(forward > 0.0){
+    //         start_idx = i;
+    //         break; 
+    //     }
+    // }
+
+    // if(start_idx == -1) {
+    //     RCLCPP_WARN(this->get_logger(), "Nenhum ponto do mapa encontrado à frente do carro!");
+    //     return; 
+    // }
+
+    // membro da classe, inicializado a 0 (ou -1 na primeira chamada)
+// std::size_t last_idx = 0;
+    const std::size_t WINDOW_SIZE = 10; // 10 pontos = 5 metros de busca à frente do último idx
+    std::size_t last_idx = 0;
     int start_idx = -1;
-    for(std::size_t i = 0; i < map.size(); i++){
+    std::size_t search_window = std::min(map.size(), last_idx + WINDOW_SIZE); 
+    // WINDOW_SIZE = nº de pontos a olhar para a frente a partir do último encontrado
+
+    for(std::size_t i = last_idx; i < search_window; i++){
         double dx = map[i].x - carData.car_x;
         double dy = map[i].y - carData.car_y;
-        
-        // Produto escalar simples para saber se o ponto está à frente
         double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
-
         if(forward > 0.0){
             start_idx = i;
-            break; 
+            break;
         }
     }
 
@@ -49,6 +72,9 @@ void skidpad_node::SplitLineSender(){//CarData carData){
         RCLCPP_WARN(this->get_logger(), "Nenhum ponto do mapa encontrado à frente do carro!");
         return; 
     }
+
+    last_idx = start_idx; // guardar para a próxima iteração
+
 
     // Variáveis para controlar a distância entre pontos
     double last_added_x = map[start_idx].x;
