@@ -52,7 +52,7 @@ void skidpad_node::SplitLineSender(){
 
     // membro da classe, inicializado a 0 (ou -1 na primeira chamada)
 // std::size_t last_idx = 0;
-    const std::size_t WINDOW_SIZE = 10; // 10 pontos = 5 metros de busca à frente do último idx
+    const std::size_t WINDOW_SIZE = 5; // 10 pontos = 5 metros de busca à frente do último idx
     int start_idx = -1;
     std::size_t search_window = std::min(map.size(), last_idx_ + WINDOW_SIZE); 
 
@@ -62,14 +62,16 @@ void skidpad_node::SplitLineSender(){
         double dx = map[i].x - carData.car_x;
         double dy = map[i].y - carData.car_y;
         double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
+        
+        RCLCPP_WARN(this->get_logger(), 
+            "i=%zu, map=(%.2f,%.2f), car=(%.2f,%.2f), dx=%.2f, dy=%.2f, forward=%.4f",
+            i, map[i].x, map[i].y, carData.car_x, carData.car_y, dx, dy, forward);
+        
         if(forward > 0.0){
             start_idx = static_cast<int>(i);
             break;
         }
     }
-    RCLCPP_WARN(this->get_logger(), 
-    "last_idx=%zu, search_window=%zu, car_x=%.2f, car_y=%.2f, yaw=%.2f", 
-    skidpad_node::last_idx_, search_window, carData.car_x, carData.car_y, carData.yaw);
 
     if(start_idx == -1) {
         RCLCPP_WARN(this->get_logger(), "Nenhum ponto do mapa encontrado à frente do carro!");
