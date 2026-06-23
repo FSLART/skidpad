@@ -20,6 +20,7 @@ class skidpad_node : public rclcpp::Node
     public:
      skidpad_node();
     private:
+        std::size_t last_idx_ = 0;
         std::vector<PathStruct> map;
         double total_dist = 0;
         bool map_Localized = false;
