@@ -69,7 +69,7 @@ void skidpad_node::SplitLineSender(){//CarData carData){
     std::size_t i = (start_idx + 1) % map.size(); // Começa no ponto a seguir
     std::size_t pontos_verificados = 0;           // Segurança contra loops infinitos
 
-    while(pathSpline_msg.poses.size() < 40 && pontos_verificados < map.size()){
+    while(pathSpline_msg.poses.size() < 400 && pontos_verificados < map.size()){
         
         // Distância ao ÚLTIMO ponto que enviámos
         double d = distance(last_added_x, last_added_y, map[i].x, map[i].y);
@@ -81,7 +81,7 @@ void skidpad_node::SplitLineSender(){//CarData carData){
                 carData.roll, carData.pitch, carData.yaw, stamp
             );
             //Verification zone
-            pose = skidpad_node::track_correction(pose);
+            //pose = skidpad_node::track_correction(pose);
             pathSpline_msg.poses.push_back(pose);
             pathSpline_msg.curvature.push_back(map[i].cur);
             
@@ -134,7 +134,7 @@ void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::Share
 
 void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr msg)
 {
-    RCLCPP_INFO(this->get_logger(), "Tou TOU TOU AQUI");
+    //RCLCPP_INFO(this->get_logger(), "Tou TOU TOU AQUI");
 
     auto cones_s = msg->cones;
     skidpad_node::coneArray = msg;
@@ -152,13 +152,26 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
         //Calcula o ponto medio dos cones mais proximos ao caroo
         if (blue_index != -1 && yellow_index != -1 && orange_index_1 != -1 && orange_index_2 != -1) 
         {
+            double threshold_distance = 2;
             RCLCPP_INFO(this->get_logger(), "Tou aqui");
 
-            //    RCLCPP_INFO(this->get_logger(), "gate 1: %.2f %.2f \n gate2: %.2f %.2f",cones_s[orange_gate_1].position.x, 
-            //    cones_s[orange_gate_1].position.y, cones_s[orange_gate_2].position.x, cones_s[orange_gate_2].position.y);
+            //*-------------------------------------------*
+            //*   MUDAR ISTO QUE TÀ HARDCODED NOS CONES   *
+            //*   VERIFICAR E TESTAR SE O REATRY TA BOM   *
+            //*-------------------------------------------*
+            map_localizer(msg,blue_index,yellow_index,0,1,&map);
+            RCLCPP_INFO(this->get_logger(), "PRIMEIRO PONTO DO MAP: (%.2f,%.2f) ",map[0].x,map[0].y);
+            double realDisance = distance(carData.car_x,carData.car_y,map[0].x,map[0].y);
+            if(realDisance > threshold_distance){
+                RCLCPP_INFO(this->get_logger(), "A tentar de novo");
 
-            map_localizer(msg,blue_index,yellow_index,orange_index_1,orange_index_2,&map);
+                map_localizer(msg,blue_index,yellow_index,0,1,&map);
+                RCLCPP_INFO(this->get_logger(), "PRIMEIRO PONTO DO MAP: (%.2f,%.2f) ",map[0].x,map[0].y);
+            }
             map_Localized = true;
+            //RCLCPP_INFO(this->get_logger(), "PRIMEIRO PONTO DO MAP: (%.2f,%.2f) ",map[0].x,map[0].y);
+            return;
+
         }
     }
 }
@@ -304,12 +317,12 @@ geometry_msgs::msg::PoseStamped skidpad_node::track_correction(
     pose.pose.position.x += gain * correction_x;
     pose.pose.position.y += gain * correction_y;
 
-    RCLCPP_INFO(
-        this->get_logger(),
-        "Track correction | error=%.3f | corr=(%.3f, %.3f)",
-        error,
-        correction_x,
-        correction_y);
+    // RCLCPP_INFO(
+    //     this->get_logger(),
+    //     "Track correction | error=%.3f | corr=(%.3f, %.3f)",
+    //     error,
+    //     correction_x,
+    //     correction_y);
 
     return pose;
 }
