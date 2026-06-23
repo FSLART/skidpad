@@ -54,38 +54,19 @@ void skidpad_node::SplitLineSender(){
 // std::size_t last_idx = 0;
     const std::size_t WINDOW_SIZE = 10; // 10 pontos = 5 metros de busca à frente do último idx
     int start_idx = -1;
-    std::size_t search_window = std::min(map.size(), skidpad_node::last_idx_ + WINDOW_SIZE); 
-    // WINDOW_SIZE = nº de pontos a olhar para a frente a partir do último encontrado
+    std::size_t search_window = std::min(map.size(), last_idx_ + WINDOW_SIZE); 
 
-
-/*
-int start_idx = -1;
-for(std::size_t offset = 0; offset < WINDOW_SIZE; offset++){
-    std::size_t i = (last_idx_ + offset) % map.size();
-    double dx = map[i].x - carData.car_x;
-    double dy = map[i].y - carData.car_y;
-    double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
-    if(forward > 0.0){
-        start_idx = static_cast<int>(i);
-        break;
-    }
-}
-
-
-
-*/
-
-
-    for(std::size_t i = skidpad_node::last_idx_; i < search_window; i++){
+    int start_idx = -1;
+    for(std::size_t offset = 0; offset < WINDOW_SIZE; offset++){
+        std::size_t i = (last_idx_ + offset) % map.size();
         double dx = map[i].x - carData.car_x;
         double dy = map[i].y - carData.car_y;
         double forward = dx * std::cos(carData.yaw) + dy * std::sin(carData.yaw);
         if(forward > 0.0){
-            start_idx = i;
+            start_idx = static_cast<int>(i);
             break;
         }
     }
-
     RCLCPP_WARN(this->get_logger(), 
     "last_idx=%zu, search_window=%zu, car_x=%.2f, car_y=%.2f, yaw=%.2f", 
     skidpad_node::last_idx_, search_window, carData.car_x, carData.car_y, carData.yaw);
@@ -95,7 +76,7 @@ for(std::size_t offset = 0; offset < WINDOW_SIZE; offset++){
         return; 
     }
 
-    last_idx = start_idx; // guardar para a próxima iteração
+    last_idx_ = start_idx; // guardar para a próxima iteração
 
 
 
