@@ -205,23 +205,23 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
         double nearstCone_blue = -1;
         double nearstCone_yellow = -1;
 
-        size_t blue_distnace = std::numeric_limits<double>::max();
-        size_t yellow_distnace = std::numeric_limits<double>::max();
+        double blue_distnace = std::numeric_limits<double>::max();
+        double yellow_distnace = std::numeric_limits<double>::max();
         
-        for (size_t i = 0; i < cones_s.size(); i++)
+        for (size_t j = 0; j < cones_s.size(); i++)
         {
             double tmp_distance;
-            if(cones_s[i].BLUE == lart_msgs::msg::Cone::BLUE){
-                tmp_distance = distance(cones_s[i].position.x,cones_s[i].position.y,pose_pos.first,pose_pos.second);
+            if(cones_s[j].BLUE == lart_msgs::msg::Cone::BLUE){
+                tmp_distance = distance(cones_s[j].position.x,cones_s[j].position.y,pose_pos.first,pose_pos.second);
                 if (blue_distnace > tmp_distance)
                 {
                     blue_distnace = tmp_distance;
                     nearstCone_blue = i;
                 }
             }
-            if (cones_s[i].YELLOW == lart_msgs::msg::Cone::YELLOW)
+            if (cones_s[j].YELLOW == lart_msgs::msg::Cone::YELLOW)
             {
-                tmp_distance = distance(cones_s[i].position.x,cones_s[i].position.y,pose_pos.first,pose_pos.second);
+                tmp_distance = distance(cones_s[j].position.x,cones_s[j].position.y,pose_pos.first,pose_pos.second);
                 if (yellow_distnace > tmp_distance)
                 {
                     yellow_distnace = tmp_distance;
@@ -240,7 +240,7 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
         soma_erro_y += ConesMidPoint.second - pose_pos.second;
         pontos_validos++;
 
-        
+
         
 
 
