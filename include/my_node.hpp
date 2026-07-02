@@ -38,5 +38,6 @@ class skidpad_node : public rclcpp::Node
         void coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr msg);
         //enviar isto num struct é melhor roll pitch e yaw 
         void SplitLineSender();
-        geometry_msgs::msg::PoseStamped track_correction(geometry_msgs::msg::PoseStamped pose);
+        void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path);
+
 };

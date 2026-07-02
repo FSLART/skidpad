@@ -184,98 +184,81 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
     }
 }
 
-//Antiga
-geometry_msgs::msg::PoseStamped skidpad_node::track_correction(
-    geometry_msgs::msg::PoseStamped pose)
-{
-    auto cones = coneArray->cones;
+void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
+    auto cones_s = coneArray->cones;
+    auto original_path = *path;
 
-    if(cones.empty())
-        return pose;
+    double soma_erro_x      = 0;
+    double soma_erro_y      = 0;
+    double pontos_validos   = 0;
 
-    std::pair<double,double> pose_pos = {
-        pose.pose.position.x,
-        pose.pose.position.y
-    };
+    if(cones_s.empty())
+        return;
 
-    int blue_index = -1;
-    int yellow_index = -1;
-
-    double dist_b = std::numeric_limits<double>::max();
-    double dist_y = std::numeric_limits<double>::max();
-
-    for(size_t i = 0; i < cones.size(); i++)
+    //we only need the blue & yellow index
+    //we are going to consider the first point of the path to translate
+    for (size_t i = 0; i < 20; i++)
     {
-        if(cones[i].BLUE == 2)
-        {
-            double d = distance(
-                cones[i].position.x,
-                cones[i].position.y,
-                pose_pos.first,
-                pose_pos.second);
+        std::pair<double, double> pose_pos = {path->poses[i].pose.position.x, path->poses[i].pose.position.y}; 
+        
+        //locking for the nearst cone in relation to the pose
+        double nearstCone_blue = -1;
+        double nearstCone_yellow = -1;
 
-            if(d < dist_b)
+        size_t blue_distnace = std::numeric_limits<double>::max();
+        size_t yellow_distnace = std::numeric_limits<double>::max();
+        
+        for (size_t i = 0; i < cones_s.size(); i++)
+        {
+            double tmp_distance;
+            if(cones_s[i].BLUE == lart_msgs::msg::Cone::BLUE){
+                tmp_distance = distance(cones_s[i].position.x,cones_s[i].position.y,pose_pos.first,pose_pos.second);
+                if (blue_distnace > tmp_distance)
+                {
+                    blue_distnace = tmp_distance;
+                    nearstCone_blue = i;
+                }
+            }
+            if (cones_s[i].YELLOW == lart_msgs::msg::Cone::YELLOW)
             {
-                dist_b = d;
-                blue_index = i;
+                tmp_distance = distance(cones_s[i].position.x,cones_s[i].position.y,pose_pos.first,pose_pos.second);
+                if (yellow_distnace > tmp_distance)
+                {
+                    yellow_distnace = tmp_distance;
+                    nearstCone_yellow = i;
+                }
             }
         }
 
-        if(cones[i].YELLOW == 1)
-        {
-            double d = distance(
-                cones[i].position.x,
-                cones[i].position.y,
-                pose_pos.first,
-                pose_pos.second);
+        //Midpoint cones
+        double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x)/2;
+        double midPoint_y = (cones_s[nearstCone_blue].position.y + cones_s[nearstCone_yellow].position.y)/2;
+        std::pair<double,double> ConesMidPoint = {midPoint_x,midPoint_y};
 
-            if(d < dist_y)
-            {
-                dist_y = d;
-                yellow_index = i;
-            }
-        }
+        //Calulating the error
+        soma_erro_x += ConesMidPoint.first - pose_pos.first;
+        soma_erro_y += ConesMidPoint.second - pose_pos.second;
+        pontos_validos++;
+
+        
+        
+
+
     }
+    
 
-    if(blue_index == -1 || yellow_index == -1)
-        return pose;
 
-    // midpoint entre os cones mais próximos
-    double mid_x =
-        (cones[blue_index].position.x +
-         cones[yellow_index].position.x) * 0.25;
 
-    double mid_y =
-        (cones[blue_index].position.y +
-         cones[yellow_index].position.y) * 0.25;
 
-    double correction_x = mid_x - pose_pos.first;
-    double correction_y = mid_y - pose_pos.second;
+    
 
-    double error =
-        std::sqrt(correction_x * correction_x +
-                  correction_y * correction_y);
 
-    double threshold = 1.50 - middleCar;
 
-    if(error < threshold)
-        return pose;
 
-    // ganho pequeno para evitar saltos
-    const double gain = 0.20;
 
-    pose.pose.position.x += gain * correction_x;
-    pose.pose.position.y += gain * correction_y;
-
-    // RCLCPP_INFO(
-    //     this->get_logger(),
-    //     "Track correction | error=%.3f | corr=(%.3f, %.3f)",
-    //     error,
-    //     correction_x,
-    //     correction_y);
-
-    return pose;
 }
+
+
 
 
 int main(int argc, char *argv[])
