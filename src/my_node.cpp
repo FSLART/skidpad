@@ -188,11 +188,11 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
     auto cones_s = coneArray->cones;
     auto original_path = *path;
 
-    double soma_erro_x      = 0;
-    double soma_erro_y      = 0;
-    double pontos_validos   = 0;
+    double soma_erro_x      = 0.0;
+    double soma_erro_y      = 0.0;
+    double pontos_validos   = 0.0;
 
-    if(cones_s.empty())
+    if(cones_s.empty() || path->poses.empty())
         return;
 
     //we only need the blue & yellow index
@@ -230,32 +230,66 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
             }
         }
 
+        if (nearstCone_blue == -1 || nearstCone_yellow == -1) {
+            continue;
+        }
+
+        // Validar a largura do par de cones (limite de 7.5m para lidar com as curvas)
+        double pair_distance = distance(
+            cones_s[nearstCone_blue].position.x, cones_s[nearstCone_blue].position.y,
+            cones_s[nearstCone_yellow].position.x, cones_s[nearstCone_yellow].position.y
+        );
+
+        if (pair_distance > 7.5) {
+            continue; 
+        }
+
         //Midpoint cones
         double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x)/2;
         double midPoint_y = (cones_s[nearstCone_blue].position.y + cones_s[nearstCone_yellow].position.y)/2;
-        std::pair<double,double> ConesMidPoint = {midPoint_x,midPoint_y};
 
         //Calulating the error
-        soma_erro_x += ConesMidPoint.first - pose_pos.first;
-        soma_erro_y += ConesMidPoint.second - pose_pos.second;
+        soma_erro_x += (midPoint_x - pose_pos.first);
+        soma_erro_y += (midPoint_y - pose_pos.second);
         pontos_validos++;
 
-
-        
-
-
+    
     }
-    
 
+    // Se no fim do ciclo não houve nenhum ponto válido, não mexemos no path
+    if (pontos_validos == 0) {
+        return;
+    }
 
+    // --- FAZER AS MÉDIAS ---
+    double erro_medio_x = soma_erro_x / pontos_validos;
+    double erro_medio_y = soma_erro_y / pontos_validos;
 
+    // --- FILTRAR O ERRO MÉDIO (EMA) ---
+    const double ALPHA = 0.15; 
+    double filtered_corr_x = ALPHA * erro_medio_x + (1.0 - ALPHA) * this->prev_corr_x_;
+    double filtered_corr_y = ALPHA * erro_medio_y + (1.0 - ALPHA) * this->prev_corr_y_;
 
-    
+    // --- CLAMP (Proteção contra guinadas de 30cm) ---
+    const double MAX_CORRECTION = 0.30; 
+    double corr_magnitude = std::sqrt(filtered_corr_x * filtered_corr_x + filtered_corr_y * filtered_corr_y);
 
+    if (corr_magnitude > MAX_CORRECTION) {
+        double scale = MAX_CORRECTION / corr_magnitude;
+        filtered_corr_x *= scale;
+        filtered_corr_y *= scale;
+    }
 
+    // Guardar para o próximo ciclo do ROS
+    this->prev_corr_x_ = filtered_corr_x;
+    this->prev_corr_y_ = filtered_corr_y;
 
-
-
+    // --- MOMENTO FINAL: DESLOCAR O PATH TODO ---
+    for (auto& pt : path->poses)
+    {
+        pt.pose.position.x += filtered_corr_x;
+        pt.pose.position.y += filtered_corr_y;
+    }
 }
 
 
