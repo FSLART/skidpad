@@ -205,6 +205,14 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
         return;
     }
 
+
+    // --- VARIAVEIS DE CONTROLO 
+    // --- FILTRAR O ERRO MÉDIO (EMA) ---
+    const double ALPHA = 0.40; 
+
+    // --- CLAMP (Proteção contra guinadas em cm) ---
+    const double MAX_CORRECTION = 1.50; 
+
     //we only need the blue & yellow index
     //we are going to consider the first point of the path to translate
     for (size_t i = 0; i < 20; i++)
@@ -277,13 +285,10 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
     double erro_medio_x = soma_erro_x / pontos_validos;
     double erro_medio_y = soma_erro_y / pontos_validos;
 
-    // --- FILTRAR O ERRO MÉDIO (EMA) ---
-    const double ALPHA = 0.15; 
     double filtered_corr_x = ALPHA * erro_medio_x + (1.0 - ALPHA) * this->prev_corr_x_;
     double filtered_corr_y = ALPHA * erro_medio_y + (1.0 - ALPHA) * this->prev_corr_y_;
 
-    // --- CLAMP (Proteção contra guinadas de 30cm) ---
-    const double MAX_CORRECTION = 0.30; 
+   
     double corr_magnitude = std::sqrt(filtered_corr_x * filtered_corr_x + filtered_corr_y * filtered_corr_y);
 
     if (corr_magnitude > MAX_CORRECTION) {
