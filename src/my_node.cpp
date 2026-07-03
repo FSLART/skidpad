@@ -86,7 +86,6 @@ void skidpad_node::SplitLineSender(){
                 carData.roll, carData.pitch, carData.yaw, stamp
             );
             //Verification zone
-            pose = skidpad_node::track_correction(pose);
             pathSpline_msg.poses.push_back(pose);
             pathSpline_msg.curvature.push_back(map[i].cur);
             
@@ -103,6 +102,9 @@ void skidpad_node::SplitLineSender(){
         i = (i + 1) % map.size();
         pontos_verificados++;
     }
+
+    track_correction(&pathSpline_msg);
+
 
     // 4. Publicar apenas UMA vez no final da função
     if(!pathSpline_msg.poses.empty()){
@@ -185,7 +187,11 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 }
 
 void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
-    auto cones_s = coneArray->cones;
+   if(!path || !coneArray){
+    return; 
+   }
+   
+    const auto& cones_s = coneArray->cones;
     auto original_path = *path;
 
     double soma_erro_x      = 0.0;
@@ -194,6 +200,10 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
 
     if(cones_s.empty() || path->poses.empty())
         return;
+
+    if (cones_s.size() > 5000) {
+        return;
+    }
 
     //we only need the blue & yellow index
     //we are going to consider the first point of the path to translate
@@ -208,15 +218,17 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
         double blue_distnace = std::numeric_limits<double>::max();
         double yellow_distnace = std::numeric_limits<double>::max();
         
-        for (size_t j = 0; j < cones_s.size(); i++)
+        for (size_t j = 0; j < cones_s.size(); j++)
         {
+            
+
             double tmp_distance;
             if(cones_s[j].BLUE == lart_msgs::msg::Cone::BLUE){
                 tmp_distance = distance(cones_s[j].position.x,cones_s[j].position.y,pose_pos.first,pose_pos.second);
                 if (blue_distnace > tmp_distance)
                 {
                     blue_distnace = tmp_distance;
-                    nearstCone_blue = i;
+                    nearstCone_blue = j;
                 }
             }
             if (cones_s[j].YELLOW == lart_msgs::msg::Cone::YELLOW)
@@ -225,7 +237,7 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
                 if (yellow_distnace > tmp_distance)
                 {
                     yellow_distnace = tmp_distance;
-                    nearstCone_yellow = i;
+                    nearstCone_yellow = j;
                 }
             }
         }
