@@ -11,6 +11,8 @@
 #include "lart_msgs/msg/path_spline.hpp"
 #include "lart_msgs/msg/cone.hpp"
 #include "lart_msgs/msg/cone_array.hpp"
+//#include "lart_common.h"
+#include "topics.h"
 #include "utils.hpp"
 #include "types.hpp"
 
@@ -27,9 +29,7 @@ class skidpad_node : public rclcpp::Node
         CarData carData;
         lart_msgs::msg::ConeArray::SharedPtr coneArray;
         const double middleCar = 0.7;
-        double prev_corr_x_ = 0.0;
-        double prev_corr_y_ = 0.0;
-
+     
 
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_vis_pub;
         rclcpp::Publisher<lart_msgs::msg::PathSpline>::SharedPtr path_control_pub; 

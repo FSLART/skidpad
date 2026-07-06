@@ -25,6 +25,12 @@ add_executable(skidpad_exec
   src/utils.cpp
 )
 
+include_directories(
+  include
+  ${CMAKE_SOURCE_DIR}/../lart_common
+)
+
+
 # --- Incluir Cabeçalhos (Headers) ---
 # Necessário para que os ficheiros .cpp encontrem a pasta include/
 target_include_directories(skidpad_exec PUBLIC
