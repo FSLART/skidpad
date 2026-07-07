@@ -11,8 +11,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
 
     this->cone_array_subscriber = this->create_subscription<lart_msgs::msg::ConeArray>(TOPIC_CONES, 10, std::bind(&skidpad_node::coneArrayCallback, this, _1));
     this->position_subscriber = this->create_subscription<geometry_msgs::msg::PoseStamped>(TOPIC_SLAM_POSE, 10, std::bind(&skidpad_node::positionCallback, this, _1));
-
-    map = file_loader("skidpad_path.csv");
+    map = file_loader("skidpad_path_xyk.csv");
     //double total_dist = 0;
 };
 
@@ -103,7 +102,7 @@ void skidpad_node::SplitLineSender(){
         pontos_verificados++;
     }
 
-   // track_correction(&pathSpline_msg);
+   track_correction(&pathSpline_msg,&path_rviz_msg);
 
 
     // 4. Publicar apenas UMA vez no final da função
@@ -186,8 +185,9 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
     }
 }
 
-void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
-    if (!path || !coneArray) 
+void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::msg::Path *path_vis){
+  // PROTEÇÃO 1: Evitar ler ponteiros nulos
+    if (!path || !coneArray) {
         return;
     auto local_coneArray = coneArray;
     const auto& cones_s = local_coneArray->cones;
@@ -202,14 +202,16 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
     double start_x = path->poses[0].pose.position.x;
     double start_y = path->poses[0].pose.position.y;
 
-    size_t num_pontos = std::min((size_t)12, path->poses.size());
+    // AFINAÇÃO 1: Reduzido de 20 para 8 para não cortar a curva ("Efeito Atalho")
+    size_t num_pontos = std::min((size_t)14, path->poses.size());
 
     for (size_t i = 0; i < num_pontos; i++)
     {
         double pt_x = path->poses[i].pose.position.x;
         double pt_y = path->poses[i].pose.position.y;
         
-        if (distance(start_x, start_y, pt_x, pt_y) > 1.5) 
+        // Se já olhamos mais de 2 metros para a frente, paramos de calcular a média!
+        if (distance(start_x, start_y, pt_x, pt_y) > 2) {
             break;
 
         // 1. Descobrir a orientação do path neste ponto (Heading / Theta)
@@ -289,6 +291,16 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
         double midPoint_x = (cones_s[best_blue_idx].position.x + cones_s[best_yellow_idx].position.x) / 2.0;
         double midPoint_y = (cones_s[best_blue_idx].position.y + cones_s[best_yellow_idx].position.y) / 2.0;
 
+        //evita que os cones azul e amarelo estejam longe e se conectem
+        if (pair_distance > 5) {
+            continue; 
+        }
+
+        // Midpoint cones 
+        double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x) / 2.0;
+        double midPoint_y = (cones_s[nearstCone_blue].position.y + cones_s[nearstCone_yellow].position.y) / 2.0;
+
+        // Calculating the error e Acumular
         soma_erro_x += (midPoint_x - pt_x);
         soma_erro_y += (midPoint_y - pt_y);
         pontos_validos++;
@@ -303,19 +315,34 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path){
     const double MAX_CORRECTION = 0.40; 
     double corr_magnitude = std::sqrt(erro_medio_x * erro_medio_x + erro_medio_y * erro_medio_y);
 
-    double final_corr_x = erro_medio_x;
-    double final_corr_y = erro_medio_y;
+    // --- FILTRAR O ERRO MÉDIO (EMA) ---
+    // AFINAÇÃO 2: Aumentado para 0.40 para reagir mais rápido e puxar para o meio
+    const double ALPHA = 0.30; 
+    double filtered_corr_x = ALPHA * erro_medio_x + (1.0 - ALPHA) * this->prev_corr_x_;
+    double filtered_corr_y = ALPHA * erro_medio_y + (1.0 - ALPHA) * this->prev_corr_y_;
+
+    // --- CLAMP (Proteção contra guinadas) ---
+    // AFINAÇÃO 3: Aumentado para 1.50m para o carro ter liberdade de chegar ao meio
+    const double MAX_CORRECTION = 1.5; 
+    double corr_magnitude = std::sqrt(filtered_corr_x * filtered_corr_x + filtered_corr_y * filtered_corr_y);
 
     if (corr_magnitude > MAX_CORRECTION) {
         double scale = MAX_CORRECTION / corr_magnitude;
-        final_corr_x *= scale;
-        final_corr_y *= scale;
+        filtered_corr_x *= scale;
+        filtered_corr_y *= scale;
+        RCLCPP_WARN(this->get_logger(), "[SKIDPAD CORRECTION] Limite MAX (%f) atingido!",MAX_CORRECTION);
     }
 
     for (auto& pt : path->poses)
     {
         pt.pose.position.x += final_corr_x;
         pt.pose.position.y += final_corr_y;
+    }
+    //TEMP COMENTAR DEPOIS
+    for (auto& pt : path_vis->poses)
+    {
+        pt.pose.position.x += filtered_corr_x;
+        pt.pose.position.y += filtered_corr_y;
     }
 }
 
