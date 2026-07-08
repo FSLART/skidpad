@@ -30,6 +30,8 @@ class skidpad_node : public rclcpp::Node
         lart_msgs::msg::ConeArray::SharedPtr coneArray;
         const double middleCar = 0.7;
      
+        double prev_corr_x_ = 0.0;
+        double prev_corr_y_ = 0.0;
 
         rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_vis_pub;
         rclcpp::Publisher<lart_msgs::msg::PathSpline>::SharedPtr path_control_pub; 
