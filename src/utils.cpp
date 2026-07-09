@@ -30,44 +30,76 @@ geometry_msgs::msg::PoseStamped createPoseMsg(
 
 //rotação n tá a rodar bem as cenas 
 //TEORIA: O PATH N TÀ NO MEIO DOS CONES DE FORMA PERFEITA 
-void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_index,int yellow_index,int gate_index1, int gate_index2, std::vector<PathStruct> *map){
+// void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_index,int yellow_index,int gate_index1, int gate_index2, std::vector<PathStruct> *map){
+//     auto cones_s = msg->cones;
+//     std::vector<PathStruct> temp_map = *map;
+
+//     //calcula o ponto medio
+//     double bx = cones_s[blue_index].position.x;
+//     double by = cones_s[blue_index].position.y;
+//     double yx = cones_s[yellow_index].position.x;
+//     double yy = cones_s[yellow_index].position.y;
+
+//     double gate1_x = cones_s[gate_index1].position.x;
+//     double gate1_y = cones_s[gate_index1].position.y;
+
+//     double gate2_x = cones_s[gate_index2].position.x;
+//     double gate2_y = cones_s[gate_index2].position.y;
+
+
+//     double midpoint_x = (gate1_x+gate2_x)/2;
+//     double midpoint_y = (gate1_y+gate2_y)/2;
+
+//     double tx = (bx + yx) / 2.0;
+//     double ty = (by + yy) / 2.0;
+
+//     //Calcular a Rotação Inicial (tr)
+//     // Na Formula Student: Azul é Esquerda, Amarelo é Direita.
+//     // O vetor vai do Azul para o Amarelo. Queremos a perpendicular (frente).
+//     double tr = atan2(yy - by, yx - bx); 
+
+//     double cos_tr = std::cos(tr);
+//     double sin_tr = std::sin(tr);
+
+//     for(PathStruct& path : temp_map){
+//         double original_x = path.x;
+
+//         path.x = (original_x + midpoint_x) * cos_tr - (path.y - midpoint_y) * sin_tr + tx;
+//         path.y = (original_x + midpoint_x) * sin_tr + (path.y - midpoint_y) * cos_tr + ty;
+//     }
+    
+//     *map = temp_map;
+// }
+
+void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg,
+                   int blue_index, int yellow_index,
+                   int gate_index1, int gate_index2,
+                   std::vector<PathStruct> *map)
+{
     auto cones_s = msg->cones;
     std::vector<PathStruct> temp_map = *map;
 
-    //calcula o ponto medio
     double bx = cones_s[blue_index].position.x;
     double by = cones_s[blue_index].position.y;
     double yx = cones_s[yellow_index].position.x;
     double yy = cones_s[yellow_index].position.y;
 
-    double gate1_x = cones_s[gate_index1].position.x;
-    double gate1_y = cones_s[gate_index1].position.y;
+    // Ponto de referência no referencial do carro:
+    // para onde a ORIGEM do mapa deve ir. Escolhe UM (gate ou azul/amarelo).
+    double ref_x = (cones_s[gate_index1].position.x + cones_s[gate_index2].position.x) / 2.0;
+    double ref_y = (cones_s[gate_index1].position.y + cones_s[gate_index2].position.y) / 2.0;
 
-    double gate2_x = cones_s[gate_index2].position.x;
-    double gate2_y = cones_s[gate_index2].position.y;
-
-
-    double midpoint_x = 0;//(gate1_x+gate2_x)/2;
-    double midpoint_y = (gate1_y+gate2_y)/2;
-
-    double tx = (bx + yx) / 2.0;
-    double ty = (by + yy) / 2.0;
-
-    //Calcular a Rotação Inicial (tr)
-    // Na Formula Student: Azul é Esquerda, Amarelo é Direita.
-    // O vetor vai do Azul para o Amarelo. Queremos a perpendicular (frente).
-    double tr = atan2(yy - by, yx - bx); 
-
+    // Heading: a frente é perpendicular ao vetor azul->amarelo.
+    double tr = std::atan2(yy - by, yx - bx) - M_PI / 2.0;  // ajusta o sinal à tua convenção
     double cos_tr = std::cos(tr);
     double sin_tr = std::sin(tr);
 
-    for(PathStruct& path : temp_map){
-        double original_x = path.x;
-
-        path.x = (original_x + midpoint_x) * cos_tr - (path.y - midpoint_y) * sin_tr + tx;
-        path.y = (original_x + midpoint_x) * sin_tr + (path.y - midpoint_y) * cos_tr + ty;
+    for (PathStruct& path : temp_map) {
+        double ox = path.x;   // coordenadas no referencial do MAPA
+        double oy = path.y;
+        path.x = ox * cos_tr - oy * sin_tr + ref_x;
+        path.y = ox * sin_tr + oy * cos_tr + ref_y;
     }
-
     *map = temp_map;
 }
 
@@ -107,6 +139,20 @@ std::vector<PathStruct> file_loader(std::string fileName){
     return skidpad_map;
 }
 
+double score_map(const std::vector<PathStruct>& candidate_map,
+                 const lart_msgs::msg::ConeArray::SharedPtr msg)
+{
+    double total_error = 0.0;
+    for (const auto& p : candidate_map) {
+        double best = std::numeric_limits<double>::max();
+        for (const auto& cone : msg->cones) {
+            double d = distance(p.x, p.y, cone.position.x, cone.position.y);
+            if (d < best) best = d;
+        }
+        total_error += best;
+    }
+    return total_error;
+}
 
 //Return values are passed through pointers 
 void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_index_o, int *yellow_index_o, int *orange_gate_1_o, int *orange_gate_2_o){
@@ -131,7 +177,7 @@ void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_inde
     for (size_t i = 0; i < cones_s.size(); i++){
         
         // Azul (Normalmente a cor/id é um Enum ou Int, assume-se que .color == 2 ou similar, mantive a tua lógica)
-        if (cones_s[i].BLUE == 2){
+        if (cones_s[i].class_type.data == lart_msgs::msg::Cone::BLUE){
             double tmp_dist = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
             if (tmp_dist < dist_b){
                 dist_b = tmp_dist;
@@ -140,7 +186,7 @@ void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_inde
         }
         
         // Amarelo
-        if (cones_s[i].YELLOW == 1){
+        if (cones_s[i].class_type.data  == lart_msgs::msg::Cone::YELLOW){
             double tmp_dist = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
             if (tmp_dist < dist_y){
                 dist_y = tmp_dist;
@@ -149,7 +195,7 @@ void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_inde
         }
         
         // Laranja
-        if (cones_s[i].ORANGE_SMALL == 3){
+        if (cones_s[i].class_type.data  == lart_msgs::msg::Cone::ORANGE_SMALL){
             double tmp_dist = distance(cones_s[i].position.x, cones_s[i].position.y, 0, 0);
             
             if (tmp_dist < dist_o1) {

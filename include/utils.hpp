@@ -11,4 +11,5 @@ geometry_msgs::msg::PoseStamped createPoseMsg(
 
 void map_localizer(const lart_msgs::msg::ConeArray::SharedPtr msg, int blue_index,int yellow_index,int gate_index1, int gate_index2, std::vector<PathStruct> *map);
 std::vector<PathStruct> file_loader(std::string fileName);
+double score_map(const std::vector<PathStruct>& candidate_map, const lart_msgs::msg::ConeArray::SharedPtr msg);
 void nearest_cone(const lart_msgs::msg::ConeArray::SharedPtr msg, int *blue_index_o, int *yellow_index_o, int *orange_gate_1_o, int *orange_gate_2_o);

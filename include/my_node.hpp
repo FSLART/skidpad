@@ -24,12 +24,17 @@ class skidpad_node : public rclcpp::Node
     private:
         std::size_t last_idx_ = 0;
         std::vector<PathStruct> map;
-        double total_dist = 0;
         bool map_Localized = false;
         CarData carData;
         lart_msgs::msg::ConeArray::SharedPtr coneArray;
-        const double middleCar = 0.7;
-     
+       
+        //MAP LOCALIZER
+        const double LOCK_THRESHOLD = 0.15;
+        const size_t MAP_LOCALIZER_TRYS = 2500;
+        
+        double best_map_distance = std::numeric_limits<double>::max();
+        size_t map_trys =0;
+
         double prev_corr_x_ = 0.0;
         double prev_corr_y_ = 0.0;
 

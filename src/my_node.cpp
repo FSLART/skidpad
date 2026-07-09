@@ -76,7 +76,7 @@ void skidpad_node::SplitLineSender()
     std::size_t i = (start_idx + 1) % map.size(); // Começa no ponto a seguir
     std::size_t pontos_verificados = 0;           // Segurança contra loops infinitos
 
-    while (pathSpline_msg.poses.size() < 100 && pontos_verificados < map.size())
+    while (pathSpline_msg.poses.size() < 10000 && pontos_verificados < map.size())
     {
 
         // Distância ao ÚLTIMO ponto que enviámos
@@ -145,48 +145,49 @@ void skidpad_node::positionCallback(const geometry_msgs::msg::PoseStamped::Share
 
 void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr msg)
 {
-    // RCLCPP_INFO(this->get_logger(), "Tou TOU TOU AQUI");
-
     auto cones_s = msg->cones;
     skidpad_node::coneArray = msg;
 
+    auto original_map = map;
+
     if (!map_Localized)
     {
-        auto original_map = map;
-
-        RCLCPP_INFO(this->get_logger(), "Trying to localize the car");
-        int blue_index = -1;
-        int yellow_index = -1;
-        int orange_index_1 = -1;
-        int orange_index_2 = -1;
-
+        int blue_index = -1, yellow_index = -1;
+        int orange_index_1 = -1, orange_index_2 = -1;
         nearest_cone(msg, &blue_index, &yellow_index, &orange_index_1, &orange_index_2);
 
-        // Calcula o ponto medio dos cones mais proximos ao caroo
         if (blue_index != -1 && yellow_index != -1 && orange_index_1 != -1 && orange_index_2 != -1)
         {
-            double threshold_distance = 2;
-            RCLCPP_INFO(this->get_logger(), "Tou aqui");
+            // experimenta as duas ORDENS do gate — resolve heading invertido
+            std::vector<std::pair<int,int>> gate_orders = {
+                {orange_index_1, orange_index_2},
+                {orange_index_2, orange_index_1}
+            };
 
-            //*-------------------------------------------*
-            //*   MUDAR ISTO QUE TÀ HARDCODED NOS CONES   *
-            //*   VERIFICAR E TESTAR SE O REATRY TA BOM   *
-            //*-------------------------------------------*
-            map_localizer(msg, blue_index, yellow_index, 0, 1, &map);
-            RCLCPP_INFO(this->get_logger(), "PRIMEIRO PONTO DO MAP: (%.2f,%.2f) ", map[0].x, map[0].y);
-            double realDisance = distance(carData.car_x, carData.car_y, map[0].x, map[0].y);
-            if (realDisance > threshold_distance)
+            for (auto& [g1, g2] : gate_orders)
             {
-                map = original_map;
-                RCLCPP_INFO(this->get_logger(), "A tentar de novo");
+                std::vector<PathStruct> candidate = original_map;   // SEMPRE do template limpo
+                map_localizer(msg, blue_index, yellow_index, g1, g2, &candidate);
 
-                map_localizer(msg, blue_index, yellow_index, 0, 1, &map);
-                RCLCPP_INFO(this->get_logger(), "PRIMEIRO PONTO DO MAP: (%.2f,%.2f) ", map[0].x, map[0].y);
+                double s = score_map(candidate, msg);   // matching de cones, não depende da pose
+                RCLCPP_INFO(this->get_logger(), "Score %.3f | melhor ate agora %.3f", s, best_map_distance);
+
+                if (s < best_map_distance)
+                {
+                    best_map_distance = s;
+                    map = candidate;
+                }
             }
-            map_Localized = true;
-            // RCLCPP_INFO(this->get_logger(), "PRIMEIRO PONTO DO MAP: (%.2f,%.2f) ",map[0].x,map[0].y);
-            return;
+            map_trys++;
         }
+
+        // decide se já está bom o suficiente para TRANCAR
+        if (best_map_distance < LOCK_THRESHOLD || map_trys < MAP_LOCALIZER_TRYS)
+        {
+            map_Localized = true;
+            RCLCPP_INFO(this->get_logger(), "SUCESSO: Mapa ancorado (%.3f)", best_map_distance);
+        }
+        return;
     }
 }
 
