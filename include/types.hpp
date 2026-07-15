@@ -15,4 +15,7 @@ struct CarData
     double roll;
     double pitch;
     double yaw;
+
+    double rpm;
+    double velocity; // meters second
 };

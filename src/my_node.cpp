@@ -11,6 +11,7 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
 
     this->cone_array_subscriber = this->create_subscription<lart_msgs::msg::ConeArray>(TOPIC_CONES, 10, std::bind(&skidpad_node::coneArrayCallback, this, _1));
     this->position_subscriber = this->create_subscription<geometry_msgs::msg::PoseStamped>(TOPIC_SLAM_POSE, 10, std::bind(&skidpad_node::positionCallback, this, _1));
+    this->rpm_subscriber = this->create_subscription<lart_msgs::msg::Dynamics>(TOPIC_CONTROL_FEEDBACK,10, std::bind(&skidpad_node::RpmCallback,this,_1));
 
     //mudar isto NAO PODE TER PATH ABSOLUTO ******************************
     map = file_loader("skidpad_path_xyk3.csv");
@@ -76,7 +77,7 @@ void skidpad_node::SplitLineSender()
     std::size_t i = (start_idx + 1) % map.size(); // Começa no ponto a seguir
     std::size_t pontos_verificados = 0;           // Segurança contra loops infinitos
 
-    while (pathSpline_msg.poses.size() < 10000 && pontos_verificados < map.size())
+    while (pathSpline_msg.poses.size() < 100 && pontos_verificados < map.size())
     {
 
         // Distância ao ÚLTIMO ponto que enviámos
@@ -106,7 +107,7 @@ void skidpad_node::SplitLineSender()
         pontos_verificados++;
     }
 
-    //track_correction(&pathSpline_msg, &path_rviz_msg);
+    track_correction(&pathSpline_msg, &path_rviz_msg);
 
     // 4. Publicar apenas UMA vez no final da função
     if (!pathSpline_msg.poses.empty())
@@ -194,11 +195,11 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::msg::Path *path_vis)
 {
     //VARIAVEIS DE CONTROLO 
-    const size_t NUMERO_DE_PONTOS = 45;     // AFINAÇÃO 1: Reduzido de 20 para 8 para não cortar a curva ("Efeito Atalho")
-    const double PAIR_DISTANCE_CONTROL = 5; //Limite da distancia para ligar os cones para evitar ligar cones de uma ponta a outra na pista
-    const double ALPHA = 0.15;          //EMA FILTER Ex Aumentado para 0.40 para reagir mais rápido e puxar para o meio
-    const double MAX_CORRECTION = 0.40;    //Proteção contra guinadas  Ex: Aumentado para 1.50m para o carro ter liberdade de chegar ao meio
-    const double DISTANCE_TO_LOOK_AHEAD = 2.5; // distancia a olhar para a frente para calcular a media  
+    const size_t NUMERO_DE_PONTOS = 40;     // AFINAÇÃO 1:  ("Efeito Atalho")
+    const double PAIR_DISTANCE_CONTROL = 4; //Limite da distancia para ligar os cones para evitar ligar cones de uma ponta a outra na pista
+    const double ALPHA = 0.30;          //EMA FILTER Ex Aumentado para 0.40 para reagir mais rápido e puxar para o meio
+    const double MAX_CORRECTION = 0.6;    //Proteção contra guinadas  Ex: Aumentado para 1.50m para o carro ter liberdade de chegar ao meio
+    const double DISTANCE_TO_LOOK_AHEAD = 5; // distancia a olhar para a frente para calcular a media  
 
 
 
@@ -246,7 +247,7 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
         for (size_t j = 0; j < cones_s.size(); j++)
         {
             double tmp_distance;
-            if (cones_s[j].BLUE == lart_msgs::msg::Cone::BLUE)
+            if (cones_s[j].class_type.data == lart_msgs::msg::Cone::BLUE)
             {
                 tmp_distance = distance(cones_s[j].position.x, cones_s[j].position.y, pose_pos.first, pose_pos.second);
                 if (blue_distnace > tmp_distance)
@@ -256,7 +257,7 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
                 }
             }
 
-            if (cones_s[j].YELLOW == lart_msgs::msg::Cone::YELLOW){
+            if (cones_s[j].class_type.data == lart_msgs::msg::Cone::YELLOW){
                 tmp_distance = distance(cones_s[j].position.x, cones_s[j].position.y, pose_pos.first, pose_pos.second);
                 if (yellow_distnace > tmp_distance){
                     yellow_distnace = tmp_distance;
@@ -355,6 +356,13 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
         path_vis->poses[k].pose.position.y += (filtered_corr_y * decaimento);
 
     }
+}
+
+void skidpad_node::RpmCallback(const lart_msgs::msg::Dynamics msg){
+
+    carData.rpm = msg->rmp;
+    CarData.velocity = RPM_TO_MS(msg->rmp);
+    
 }
 
 int main(int argc, char *argv[])
