@@ -360,8 +360,8 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::msg::Path *path_vis)
 {
     // VARIÁVEIS DE CONTROLO
-    const double PAIR_DISTANCE_CONTROL = 4.0; 
-    const double ALPHA = 1; // Atua como um ganho de atração (0.30 = move 30% em direção ao centro por ciclo)
+    const double PAIR_DISTANCE_CONTROL = 6.0; 
+    const double ALPHA = 0.70; // Atua como um ganho de atração (0.30 = move 30% em direção ao centro por ciclo)
     const double MAX_CORRECTION = 0.6;    
     double lookAhead_dynamic = (0.5 * carData.velocity) + 4.0; 
 
@@ -423,15 +423,54 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
             cones_s[nearstCone_yellow].position.x, cones_s[nearstCone_yellow].position.y
         );
 
-        if (pair_distance > PAIR_DISTANCE_CONTROL) continue;
-        
-        // Calcular o ponto médio local ideal para este ponto do caminho
-        double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x) / 2.0;
-        double midPoint_y = (cones_s[nearstCone_blue].position.y + cones_s[nearstCone_yellow].position.y) / 2.0;
+        double erro_x = 0.0;
+        double erro_y = 0.0;
 
-        // O erro é calculado localmente para cada ponto!
-        double erro_x = midPoint_x - pt_x;
-        double erro_y = midPoint_y - pt_y;
+        // SE O PAR FOR VÁLIDO: Lógica Normal (Ponto Médio)
+        if (nearstCone_blue != -1 && nearstCone_yellow != -1 && pair_distance <= PAIR_DISTANCE_CONTROL) 
+        {
+            double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x) / 2.0;
+            double midPoint_y = (cones_s[nearstCone_blue].position.y + cones_s[nearstCone_yellow].position.y) / 2.0;
+            
+            erro_x = midPoint_x - pt_x;
+            erro_y = midPoint_y - pt_y;
+        }
+        // FALLBACK: O par é inválido (muito longe), mas ESTAMOS PERTO DE UM CONE AMARELO!
+        else if (nearstCone_yellow != -1 && yellow_distance < 2.5) 
+        {
+            double dir_x = pt_x - cones_s[nearstCone_yellow].position.x;
+            double dir_y = pt_y - cones_s[nearstCone_yellow].position.y;
+            double mag = std::sqrt(dir_x * dir_x + dir_y * dir_y);
+            
+            if (mag > 0.0) {
+                double alvo_x = cones_s[nearstCone_yellow].position.x + (dir_x / mag) * 1.5;
+                double alvo_y = cones_s[nearstCone_yellow].position.y + (dir_y / mag) * 1.5;
+                
+                erro_x = alvo_x - pt_x;
+                erro_y = alvo_y - pt_y;
+            }
+        }
+        // FALLBACK 2: Estamos perto de um cone azul (mas perdemos os amarelos)
+        else if (nearstCone_blue != -1 && blue_distance < 2.5)
+        {
+            double dir_x = pt_x - cones_s[nearstCone_blue].position.x;
+            double dir_y = pt_y - cones_s[nearstCone_blue].position.y;
+            double mag = std::sqrt(dir_x * dir_x + dir_y * dir_y);
+            
+            if (mag > 0.0) {
+                double alvo_x = cones_s[nearstCone_blue].position.x + (dir_x / mag) * 1.5;
+                double alvo_y = cones_s[nearstCone_blue].position.y + (dir_y / mag) * 1.5;
+                
+                erro_x = alvo_x - pt_x;
+                erro_y = alvo_y - pt_y;
+            }
+        }
+        else 
+        {
+            continue; // Se não vemos cones nenhuns de perto, não fazemos nada.
+        }
+
+        // --- AS LINHAS ANTIGAS DO MIDPOINT FORAM APAGADAS AQUI ---
 
         // Proteção contra guinadas aplicada ponto a ponto
         double erro_magnitude = std::sqrt(erro_x * erro_x + erro_y * erro_y);
