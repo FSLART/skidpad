@@ -416,12 +416,16 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
         }
 
         // Se não encontrar um par válido para este ponto, passa ao próximo ponto do caminho
-        if (nearstCone_blue == -1 || nearstCone_yellow == -1) continue;
+        //I remove this line because the pair_distance calculator is now protected
+        // if (nearstCone_blue == -1 || nearstCone_yellow == -1) continue;
+        double pair_distance = std::numeric_limits<double>::max();
 
-        double pair_distance = distance(
-            cones_s[nearstCone_blue].position.x, cones_s[nearstCone_blue].position.y,
-            cones_s[nearstCone_yellow].position.x, cones_s[nearstCone_yellow].position.y
-        );
+        if(nearstCone_blue != -1 && nearstCone_yellow != -1){
+            pair_distance = distance(
+                cones_s[nearstCone_blue].position.x, cones_s[nearstCone_blue].position.y,
+                cones_s[nearstCone_yellow].position.x, cones_s[nearstCone_yellow].position.y
+            );
+        }
 
         double erro_x = 0.0;
         double erro_y = 0.0;
