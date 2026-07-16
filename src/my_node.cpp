@@ -356,24 +356,31 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 //         path_vis->poses[k].pose.position.y += (filtered_corr_y * decaimento);
 //     }
 // }
-
 void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::msg::Path *path_vis)
 {
     // VARIÁVEIS DE CONTROLO
     const double PAIR_DISTANCE_CONTROL = 6.0; 
-    const double ALPHA = 0.70; // Atua como um ganho de atração (0.30 = move 30% em direção ao centro por ciclo)
+    const double ALPHA = 0.70; 
     const double MAX_CORRECTION = 0.6;    
     double lookAhead_dynamic = (0.5 * carData.velocity) + 4.0; 
+
+    // DEBUG 1: Estado do Carro e da Janela de Visão
+    RCLCPP_INFO(this->get_logger(), "[SKIDPAD] V: %.2fm/s | LookAhead: %.2fm", carData.velocity, lookAhead_dynamic);
 
     if (!path || !coneArray) return;
     
     auto local_coneArray = coneArray;
     const auto &cones_s = local_coneArray->cones;
 
-    if (cones_s.size() > 5000 || cones_s.empty() || path->poses.empty()) return;
+    if (cones_s.size() > 5000 || cones_s.empty() || path->poses.empty()) {
+        RCLCPP_WARN(this->get_logger(), "[SKIDPAD] Abortado: Sem cones ou sem path.");
+        return;
+    }
 
     double start_x = path->poses[0].pose.position.x;
     double start_y = path->poses[0].pose.position.y;
+    
+    int pontos_corrigidos = 0; // Para o resumo final
 
     // Iteramos por todos os pontos do path
     for (size_t i = 0; i < path->poses.size(); i++)
@@ -381,10 +388,10 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
         double pt_x = path->poses[i].pose.position.x;
         double pt_y = path->poses[i].pose.position.y;
 
-        // PROTEÇÃO DINÂMICA: Se o ponto estiver além do look-ahead atual, paramos de corrigir!
-        // Os pontos mais distantes mantêm-se intactos até o carro se aproximar.
-        if (distance(start_x, start_y, pt_x, pt_y) > lookAhead_dynamic)
+        if (distance(start_x, start_y, pt_x, pt_y) > lookAhead_dynamic) {
+            // Se o primeiro ponto falhar o limite, escusamos de fazer prints para os restantes 30 pontos ignorados
             break;
+        }
 
         std::pair<double, double> pose_pos = {pt_x, pt_y};
         
@@ -393,7 +400,7 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
         double blue_distance = std::numeric_limits<double>::max();
         double yellow_distance = std::numeric_limits<double>::max();
 
-        // Encontrar o par de cones mais próximo DESTE PONTO ESPECÍFICO (i)
+        // Encontrar os cones mais próximos
         for (size_t j = 0; j < cones_s.size(); j++)
         {
             double tmp_distance;
@@ -415,22 +422,19 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
             }
         }
 
-        // Se não encontrar um par válido para este ponto, passa ao próximo ponto do caminho
-        //I remove this line because the pair_distance calculator is now protected
-        // if (nearstCone_blue == -1 || nearstCone_yellow == -1) continue;
+        double erro_x = 0.0;
+        double erro_y = 0.0;
         double pair_distance = std::numeric_limits<double>::max();
+        std::string acao = "IGNORADO"; // Regista o que o algoritmo decidiu fazer
 
-        if(nearstCone_blue != -1 && nearstCone_yellow != -1){
+        if (nearstCone_blue != -1 && nearstCone_yellow != -1) {
             pair_distance = distance(
                 cones_s[nearstCone_blue].position.x, cones_s[nearstCone_blue].position.y,
                 cones_s[nearstCone_yellow].position.x, cones_s[nearstCone_yellow].position.y
             );
         }
 
-        double erro_x = 0.0;
-        double erro_y = 0.0;
-
-        // SE O PAR FOR VÁLIDO: Lógica Normal (Ponto Médio)
+        // SE O PAR FOR VÁLIDO: Lógica Normal
         if (nearstCone_blue != -1 && nearstCone_yellow != -1 && pair_distance <= PAIR_DISTANCE_CONTROL) 
         {
             double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x) / 2.0;
@@ -438,8 +442,9 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
             
             erro_x = midPoint_x - pt_x;
             erro_y = midPoint_y - pt_y;
+            acao = "PAR_IDEAL";
         }
-        // FALLBACK: O par é inválido (muito longe), mas ESTAMOS PERTO DE UM CONE AMARELO!
+        // FALLBACK 1: Repulsão do Amarelo
         else if (nearstCone_yellow != -1 && yellow_distance < 2.5) 
         {
             double dir_x = pt_x - cones_s[nearstCone_yellow].position.x;
@@ -452,9 +457,10 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
                 
                 erro_x = alvo_x - pt_x;
                 erro_y = alvo_y - pt_y;
+                acao = "REPULSAO_AMARELO";
             }
         }
-        // FALLBACK 2: Estamos perto de um cone azul (mas perdemos os amarelos)
+        // FALLBACK 2: Repulsão do Azul
         else if (nearstCone_blue != -1 && blue_distance < 2.5)
         {
             double dir_x = pt_x - cones_s[nearstCone_blue].position.x;
@@ -467,24 +473,33 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
                 
                 erro_x = alvo_x - pt_x;
                 erro_y = alvo_y - pt_y;
+                acao = "REPULSAO_AZUL";
             }
         }
         else 
         {
-            continue; // Se não vemos cones nenhuns de perto, não fazemos nada.
+            continue; 
         }
 
-        // --- AS LINHAS ANTIGAS DO MIDPOINT FORAM APAGADAS AQUI ---
+        pontos_corrigidos++;
 
-        // Proteção contra guinadas aplicada ponto a ponto
         double erro_magnitude = std::sqrt(erro_x * erro_x + erro_y * erro_y);
+        
+        // Proteção contra guinadas
         if (erro_magnitude > MAX_CORRECTION) {
             double scale = MAX_CORRECTION / erro_magnitude;
             erro_x *= scale;
             erro_y *= scale;
+            
+            // DEBUG 2: Quando o limite é ativado num ponto específico
+            RCLCPP_WARN(this->get_logger(), "[SKIDPAD] Pt %zu (%s) | CORTE: Erro %.2f reduzido para %.2f", 
+                        i, acao.c_str(), erro_magnitude, MAX_CORRECTION);
+        } else {
+            // DEBUG 3: Comportamento normal por ponto
+            RCLCPP_INFO(this->get_logger(), "[SKIDPAD] Pt %zu (%s) | Aplicado: %.2fm", 
+                        i, acao.c_str(), erro_magnitude);
         }
 
-        // CORREÇÃO IMEDIATA E SUAVE (Efeito elástico controlado pelo ALPHA)
         path->poses[i].pose.position.x += erro_x * ALPHA;
         path->poses[i].pose.position.y += erro_y * ALPHA;
 
@@ -493,8 +508,10 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
             path_vis->poses[i].pose.position.y += erro_y * ALPHA;
         }
     }
-}
 
+    // DEBUG 4: Resumo do ciclo
+    RCLCPP_INFO(this->get_logger(), "[SKIDPAD] Fim de ciclo. %d pontos corrigidos dentro do LookAhead.", pontos_corrigidos);
+}
 void skidpad_node::RpmCallback(const lart_msgs::msg::Dynamics msg){
     carData.rpm = msg.rpm;
     carData.velocity = RPM_TO_MS(msg.rpm);
