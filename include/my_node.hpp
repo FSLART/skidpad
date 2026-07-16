@@ -13,6 +13,7 @@
 #include "lart_msgs/msg/cone.hpp"
 #include "lart_msgs/msg/cone_array.hpp"
 #include "lart_msgs/msg/dynamics.hpp"
+#include "lart_common.h"
 #include "topics.h"
 #include "utils.hpp"
 #include "types.hpp"
@@ -53,7 +54,7 @@ class skidpad_node : public rclcpp::Node
         //enviar isto num struct é melhor roll pitch e yaw 
         void SplitLineSender();
         void track_correction(lart_msgs::msg::PathSpline *path,nav_msgs::msg::Path *path_vis);
-        void skidpad_node::RpmCallback(const lart_msgs::msg::Dynamics msg);
+        void RpmCallback(const lart_msgs::msg::Dynamics msg);
 
 
 };

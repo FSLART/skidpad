@@ -192,177 +192,269 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
     }
 }
 
+// void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::msg::Path *path_vis)
+// {
+//     //VARIAVEIS DE CONTROLO 
+//     const size_t NUMERO_DE_PONTOS = 40;     // AFINAÇÃO 1:  ("Efeito Atalho")
+//     const double PAIR_DISTANCE_CONTROL = 4; //Limite da distancia para ligar os cones para evitar ligar cones de uma ponta a outra na pista
+//     const double ALPHA = 0.30;          //EMA FILTER Ex Aumentado para 0.40 para reagir mais rápido e puxar para o meio
+//     const double MAX_CORRECTION = 0.6;    //Proteção contra guinadas  Ex: Aumentado para 1.50m para o carro ter liberdade de chegar ao meio
+//     double lookAhead_dynamic = (0.5*carData.velocity) +2.0; // distancia a olhar para a frente para calcular a media  
+
+
+
+//     if (!path || !coneArray)
+//         return;
+    
+//     // PROTEÇÃO 2: Lock temporal e referência segura.
+//     auto local_coneArray = coneArray;
+//     const auto &cones_s = local_coneArray->cones;
+
+//     // PROTEÇÃO 3: Cortar Loops Infinitos
+//     if (cones_s.size() > 5000)
+//         return;
+
+//     // Proteção original: se não houver cones ou o path estiver vazio
+//     if (cones_s.empty() || path->poses.empty())
+//         return;
+
+//     double soma_erro_x = 0.0;
+//     double soma_erro_y = 0.0;
+//     int pontos_validos = 0;
+
+//     // Ponto de referência inicial (o carro) para calcular a distância dos 2 metros
+//     double start_x = path->poses[0].pose.position.x;
+//     double start_y = path->poses[0].pose.position.y;
+
+//     size_t num_pontos = std::min((size_t)NUMERO_DE_PONTOS, path->poses.size());
+
+//     for (size_t i = 0; i < num_pontos; i++)
+//     {
+//         double pt_x = path->poses[i].pose.position.x;
+//         double pt_y = path->poses[i].pose.position.y;
+
+//         // Se já olhamos mais de 2 metros para a frente, paramos de calcular a média!
+//         if (distance(start_x, start_y, pt_x, pt_y) > lookAhead_dynamic)
+//             break;
+
+//         std::pair<double, double> pose_pos = {pt_x, pt_y};
+        
+//         int nearstCone_blue = -1;
+//         int nearstCone_yellow = -1;
+//         double blue_distnace = std::numeric_limits<double>::max();
+//         double yellow_distnace = std::numeric_limits<double>::max();
+
+//         for (size_t j = 0; j     < cones_s.size(); j++)
+//         {
+//             double tmp_distance;
+//             if (cones_s[j].class_type.data == lart_msgs::msg::Cone::BLUE)
+//             {
+//                 tmp_distance = distance(cones_s[j].position.x, cones_s[j].position.y, pose_pos.first, pose_pos.second);
+//                 if (blue_distnace > tmp_distance)
+//                 {
+//                     blue_distnace = tmp_distance;
+//                     nearstCone_blue = j;
+//                 }
+//             }
+
+//             if (cones_s[j].class_type.data == lart_msgs::msg::Cone::YELLOW){
+//                 tmp_distance = distance(cones_s[j].position.x, cones_s[j].position.y, pose_pos.first, pose_pos.second);
+//                 if (yellow_distnace > tmp_distance){
+//                     yellow_distnace = tmp_distance;
+//                     nearstCone_yellow = j;
+//                 }
+//             }
+//         }
+
+//         if (nearstCone_blue == -1 || nearstCone_yellow == -1){
+//             continue;
+//         }
+
+//         // Validar a largura do par de cones (limite de 7.5m para lidar com as curvas)
+//         double pair_distance = distance(
+//             cones_s[nearstCone_blue].position.x, cones_s[nearstCone_blue].position.y,
+//             cones_s[nearstCone_yellow].position.x, cones_s[nearstCone_yellow].position.y
+//         );
+
+//         if (pair_distance > PAIR_DISTANCE_CONTROL)
+//             continue;
+        
+
+//         // Midpoint cones
+//         double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x) / 2.0;
+//         double midPoint_y = (cones_s[nearstCone_blue].position.y + cones_s[nearstCone_yellow].position.y) / 2.0;
+
+//         // Calculating the error e Acumular
+//         soma_erro_x += (midPoint_x - pt_x);
+//         soma_erro_y += (midPoint_y - pt_y);
+//         pontos_validos++;
+//     }
+
+//     // Se no fim do ciclo não houve nenhum ponto válido, não mexemos no path
+//     if (pontos_validos == 0)
+//     {
+//         RCLCPP_WARN(this->get_logger(), "[SKIDPAD CORRECTION] 0 pontos validos. Path inalterado.");
+//         return;
+//     }
+
+//     // --- FAZER AS MÉDIAS ---
+//     double erro_medio_x = soma_erro_x / pontos_validos;
+//     double erro_medio_y = soma_erro_y / pontos_validos;
+
+//     // MSG DEBUG 1: Mostra o erro cru que a matemática detetou (antes de cortar)
+//     RCLCPP_INFO(this->get_logger(), "[SKIDPAD CORRECTION] Pts: %d | Erro Real: (X: %.2f, Y: %.2f)",
+//                 pontos_validos, erro_medio_x, erro_medio_y);
+
+    
+//     // --- FILTRAR O ERRO MÉDIO (EMA) ---
+//     double filtered_corr_x = ALPHA * erro_medio_x + (1.0 - ALPHA) * this->prev_corr_x_;
+//     double filtered_corr_y = ALPHA * erro_medio_y + (1.0 - ALPHA) * this->prev_corr_y_;
+
+    
+//     double corr_magnitude = std::sqrt(filtered_corr_x * filtered_corr_x + filtered_corr_y * filtered_corr_y);
+
+//     if (corr_magnitude > MAX_CORRECTION)
+//     {
+//         double scale = MAX_CORRECTION / corr_magnitude;
+//         filtered_corr_x *= scale;
+//         filtered_corr_y *= scale;
+//         RCLCPP_WARN(this->get_logger(), "[SKIDPAD CORRECTION] Limite MAX (%f) atingido!",MAX_CORRECTION);
+//     }
+
+//     // MSG DEBUG 2: Mostra o erro exato que vai ser aplicado ao Path
+//     RCLCPP_INFO(this->get_logger(), "[SKIDPAD CORRECTION] Aplicado: (X: %.2f, Y: %.2f) | Filtro_Mag: %.2fm",
+//                 filtered_corr_x, filtered_corr_y, corr_magnitude);
+
+//     // Guardar para o próximo ciclo do ROS
+//     this->prev_corr_x_ = filtered_corr_x;
+//     this->prev_corr_y_ = filtered_corr_y;
+
+//     // --- MOMENTO FINAL: DESLOCAR O PATH TODO ---
+//     // for (auto &pt : path->poses)
+//     // {
+//     //     pt.pose.position.x += filtered_corr_x;
+//     //     pt.pose.position.y += filtered_corr_y;
+//     // }
+//     //
+//     // // TEMP COMENTAR DEPOIS
+//     // for (auto &pt1 : path_vis->poses)
+//     // {
+//     //     pt1.pose.position.x += filtered_corr_x;
+//     //     pt1.pose.position.y += filtered_corr_y;
+//     // }
+
+//     size_t total_poses = path->poses.size();
+//     for (size_t k = 0; k < total_poses; k++)
+//     {
+//         // O peso começa em 1.0 (100%) no primeiro ponto e vai descendo até 0.0 (0%) no último
+//         double decaimento = 1.0 - ((double)k / (double)total_poses);
+        
+//         path->poses[k].pose.position.x += (filtered_corr_x * decaimento);
+//         path->poses[k].pose.position.y += (filtered_corr_y * decaimento);
+       
+//         path_vis->poses[k].pose.position.x += (filtered_corr_x * decaimento);
+//         path_vis->poses[k].pose.position.y += (filtered_corr_y * decaimento);
+//     }
+// }
+
 void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::msg::Path *path_vis)
 {
-    //VARIAVEIS DE CONTROLO 
-    const size_t NUMERO_DE_PONTOS = 40;     // AFINAÇÃO 1:  ("Efeito Atalho")
-    const double PAIR_DISTANCE_CONTROL = 4; //Limite da distancia para ligar os cones para evitar ligar cones de uma ponta a outra na pista
-    const double ALPHA = 0.30;          //EMA FILTER Ex Aumentado para 0.40 para reagir mais rápido e puxar para o meio
-    const double MAX_CORRECTION = 0.6;    //Proteção contra guinadas  Ex: Aumentado para 1.50m para o carro ter liberdade de chegar ao meio
-    const double DISTANCE_TO_LOOK_AHEAD = 5; // distancia a olhar para a frente para calcular a media  
+    // VARIÁVEIS DE CONTROLO
+    const double PAIR_DISTANCE_CONTROL = 4.0; 
+    const double ALPHA = 0.30; // Atua como um ganho de atração (0.30 = move 30% em direção ao centro por ciclo)
+    const double MAX_CORRECTION = 0.6;    
+    double lookAhead_dynamic = (0.5 * carData.velocity) + 2.0; 
 
-
-
-    if (!path || !coneArray)
-        return;
+    if (!path || !coneArray) return;
     
-    // PROTEÇÃO 2: Lock temporal e referência segura.
     auto local_coneArray = coneArray;
     const auto &cones_s = local_coneArray->cones;
 
-    // PROTEÇÃO 3: Cortar Loops Infinitos
-    if (cones_s.size() > 5000)
-        return;
+    if (cones_s.size() > 5000 || cones_s.empty() || path->poses.empty()) return;
 
-    // Proteção original: se não houver cones ou o path estiver vazio
-    if (cones_s.empty() || path->poses.empty())
-        return;
-
-    double soma_erro_x = 0.0;
-    double soma_erro_y = 0.0;
-    int pontos_validos = 0;
-
-    // Ponto de referência inicial (o carro) para calcular a distância dos 2 metros
     double start_x = path->poses[0].pose.position.x;
     double start_y = path->poses[0].pose.position.y;
 
-    size_t num_pontos = std::min((size_t)NUMERO_DE_PONTOS, path->poses.size());
-
-    for (size_t i = 0; i < num_pontos; i++)
+    // Iteramos por todos os pontos do path
+    for (size_t i = 0; i < path->poses.size(); i++)
     {
         double pt_x = path->poses[i].pose.position.x;
         double pt_y = path->poses[i].pose.position.y;
 
-        // Se já olhamos mais de 2 metros para a frente, paramos de calcular a média!
-        if (distance(start_x, start_y, pt_x, pt_y) > DISTANCE_TO_LOOK_AHEAD)
+        // PROTEÇÃO DINÂMICA: Se o ponto estiver além do look-ahead atual, paramos de corrigir!
+        // Os pontos mais distantes mantêm-se intactos até o carro se aproximar.
+        if (distance(start_x, start_y, pt_x, pt_y) > lookAhead_dynamic)
             break;
 
         std::pair<double, double> pose_pos = {pt_x, pt_y};
         
         int nearstCone_blue = -1;
         int nearstCone_yellow = -1;
-        double blue_distnace = std::numeric_limits<double>::max();
-        double yellow_distnace = std::numeric_limits<double>::max();
+        double blue_distance = std::numeric_limits<double>::max();
+        double yellow_distance = std::numeric_limits<double>::max();
 
+        // Encontrar o par de cones mais próximo DESTE PONTO ESPECÍFICO (i)
         for (size_t j = 0; j < cones_s.size(); j++)
         {
             double tmp_distance;
             if (cones_s[j].class_type.data == lart_msgs::msg::Cone::BLUE)
             {
                 tmp_distance = distance(cones_s[j].position.x, cones_s[j].position.y, pose_pos.first, pose_pos.second);
-                if (blue_distnace > tmp_distance)
-                {
-                    blue_distnace = tmp_distance;
+                if (blue_distance > tmp_distance) {
+                    blue_distance = tmp_distance;
                     nearstCone_blue = j;
                 }
             }
-
-            if (cones_s[j].class_type.data == lart_msgs::msg::Cone::YELLOW){
+            if (cones_s[j].class_type.data == lart_msgs::msg::Cone::YELLOW)
+            {
                 tmp_distance = distance(cones_s[j].position.x, cones_s[j].position.y, pose_pos.first, pose_pos.second);
-                if (yellow_distnace > tmp_distance){
-                    yellow_distnace = tmp_distance;
+                if (yellow_distance > tmp_distance) {
+                    yellow_distance = tmp_distance;
                     nearstCone_yellow = j;
                 }
             }
         }
 
-        if (nearstCone_blue == -1 || nearstCone_yellow == -1){
-            continue;
-        }
+        // Se não encontrar um par válido para este ponto, passa ao próximo ponto do caminho
+        if (nearstCone_blue == -1 || nearstCone_yellow == -1) continue;
 
-        // Validar a largura do par de cones (limite de 7.5m para lidar com as curvas)
         double pair_distance = distance(
             cones_s[nearstCone_blue].position.x, cones_s[nearstCone_blue].position.y,
             cones_s[nearstCone_yellow].position.x, cones_s[nearstCone_yellow].position.y
         );
 
-        if (pair_distance > PAIR_DISTANCE_CONTROL)
-            continue;
+        if (pair_distance > PAIR_DISTANCE_CONTROL) continue;
         
-
-        // Midpoint cones
+        // Calcular o ponto médio local ideal para este ponto do caminho
         double midPoint_x = (cones_s[nearstCone_blue].position.x + cones_s[nearstCone_yellow].position.x) / 2.0;
         double midPoint_y = (cones_s[nearstCone_blue].position.y + cones_s[nearstCone_yellow].position.y) / 2.0;
 
-        // Calculating the error e Acumular
-        soma_erro_x += (midPoint_x - pt_x);
-        soma_erro_y += (midPoint_y - pt_y);
-        pontos_validos++;
-    }
+        // O erro é calculado localmente para cada ponto!
+        double erro_x = midPoint_x - pt_x;
+        double erro_y = midPoint_y - pt_y;
 
-    // Se no fim do ciclo não houve nenhum ponto válido, não mexemos no path
-    if (pontos_validos == 0)
-    {
-        RCLCPP_WARN(this->get_logger(), "[SKIDPAD CORRECTION] 0 pontos validos. Path inalterado.");
-        return;
-    }
+        // Proteção contra guinadas aplicada ponto a ponto
+        double erro_magnitude = std::sqrt(erro_x * erro_x + erro_y * erro_y);
+        if (erro_magnitude > MAX_CORRECTION) {
+            double scale = MAX_CORRECTION / erro_magnitude;
+            erro_x *= scale;
+            erro_y *= scale;
+        }
 
-    // --- FAZER AS MÉDIAS ---
-    double erro_medio_x = soma_erro_x / pontos_validos;
-    double erro_medio_y = soma_erro_y / pontos_validos;
+        // CORREÇÃO IMEDIATA E SUAVE (Efeito elástico controlado pelo ALPHA)
+        path->poses[i].pose.position.x += erro_x * ALPHA;
+        path->poses[i].pose.position.y += erro_y * ALPHA;
 
-    // MSG DEBUG 1: Mostra o erro cru que a matemática detetou (antes de cortar)
-    RCLCPP_INFO(this->get_logger(), "[SKIDPAD CORRECTION] Pts: %d | Erro Real: (X: %.2f, Y: %.2f)",
-                pontos_validos, erro_medio_x, erro_medio_y);
-
-    
-    // --- FILTRAR O ERRO MÉDIO (EMA) ---
-    double filtered_corr_x = ALPHA * erro_medio_x + (1.0 - ALPHA) * this->prev_corr_x_;
-    double filtered_corr_y = ALPHA * erro_medio_y + (1.0 - ALPHA) * this->prev_corr_y_;
-
-    
-    double corr_magnitude = std::sqrt(filtered_corr_x * filtered_corr_x + filtered_corr_y * filtered_corr_y);
-
-    if (corr_magnitude > MAX_CORRECTION)
-    {
-        double scale = MAX_CORRECTION / corr_magnitude;
-        filtered_corr_x *= scale;
-        filtered_corr_y *= scale;
-        RCLCPP_WARN(this->get_logger(), "[SKIDPAD CORRECTION] Limite MAX (%f) atingido!",MAX_CORRECTION);
-    }
-
-    // MSG DEBUG 2: Mostra o erro exato que vai ser aplicado ao Path
-    RCLCPP_INFO(this->get_logger(), "[SKIDPAD CORRECTION] Aplicado: (X: %.2f, Y: %.2f) | Filtro_Mag: %.2fm",
-                filtered_corr_x, filtered_corr_y, corr_magnitude);
-
-    // Guardar para o próximo ciclo do ROS
-    this->prev_corr_x_ = filtered_corr_x;
-    this->prev_corr_y_ = filtered_corr_y;
-
-    // --- MOMENTO FINAL: DESLOCAR O PATH TODO ---
-    // for (auto &pt : path->poses)
-    // {
-    //     pt.pose.position.x += filtered_corr_x;
-    //     pt.pose.position.y += filtered_corr_y;
-    // }
-
-    // // TEMP COMENTAR DEPOIS
-    // for (auto &pt1 : path_vis->poses)
-    // {
-    //     pt1.pose.position.x += filtered_corr_x;
-    //     pt1.pose.position.y += filtered_corr_y;
-    // }
-
-    size_t total_poses = path->poses.size();
-    for (size_t k = 0; k < total_poses; k++)
-    {
-        // O peso começa em 1.0 (100%) no primeiro ponto e vai descendo até 0.0 (0%) no último
-        double decaimento = 1.0 - ((double)k / (double)total_poses);
-        
-        path->poses[k].pose.position.x += (filtered_corr_x * decaimento);
-        path->poses[k].pose.position.y += (filtered_corr_y * decaimento);
-       
-        path_vis->poses[k].pose.position.x += (filtered_corr_x * decaimento);
-        path_vis->poses[k].pose.position.y += (filtered_corr_y * decaimento);
-
+        if (path_vis && i < path_vis->poses.size()) {
+            path_vis->poses[i].pose.position.x += erro_x * ALPHA;
+            path_vis->poses[i].pose.position.y += erro_y * ALPHA;
+        }
     }
 }
 
 void skidpad_node::RpmCallback(const lart_msgs::msg::Dynamics msg){
-
-    carData.rpm = msg->rmp;
-    CarData.velocity = RPM_TO_MS(msg->rmp);
-    
+    carData.rpm = msg.rpm;
+    carData.velocity = RPM_TO_MS(msg.rpm);
 }
 
 int main(int argc, char *argv[])
