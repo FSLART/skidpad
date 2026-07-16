@@ -361,9 +361,9 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
 {
     // VARIÁVEIS DE CONTROLO
     const double PAIR_DISTANCE_CONTROL = 4.0; 
-    const double ALPHA = 0.30; // Atua como um ganho de atração (0.30 = move 30% em direção ao centro por ciclo)
+    const double ALPHA = 1; // Atua como um ganho de atração (0.30 = move 30% em direção ao centro por ciclo)
     const double MAX_CORRECTION = 0.6;    
-    double lookAhead_dynamic = (0.5 * carData.velocity) + 2.0; 
+    double lookAhead_dynamic = (0.5 * carData.velocity) + 4.0; 
 
     if (!path || !coneArray) return;
     
