@@ -359,10 +359,11 @@ void skidpad_node::coneArrayCallback(const lart_msgs::msg::ConeArray::SharedPtr 
 void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::msg::Path *path_vis)
 {
     // VARIÁVEIS DE CONTROLO
-    const double PAIR_DISTANCE_CONTROL = 6.0; 
-    const double ALPHA = 0.70; 
-    const double MAX_CORRECTION = 0.6;    
-    double lookAhead_dynamic = (0.5 * carData.velocity) + 4.0; 
+    const double PAIR_DISTANCE_CONTROL = 6.0;
+    const double ALPHA = 0.70;                  // amortecimento aplicado só ao PAR_IDEAL
+    const double MAX_CORRECTION = 1.2;          // limite para o modo PAR_IDEAL (puxar ao meio)
+    const double MAX_CORRECTION_REPULSAO = 1.7; // limite maior para as repulsões de emergência
+    double lookAhead_dynamic = (0.5 * carData.velocity) + 4.0;
 
     // DEBUG 1: Estado do Carro e da Janela de Visão
     RCLCPP_INFO(this->get_logger(), "[SKIDPAD] V: %.2fm/s | LookAhead: %.2fm", carData.velocity, lookAhead_dynamic);
@@ -444,68 +445,90 @@ void skidpad_node::track_correction(lart_msgs::msg::PathSpline *path, nav_msgs::
             erro_y = midPoint_y - pt_y;
             acao = "PAR_IDEAL";
         }
-        // FALLBACK 1: Repulsão do Amarelo
-        else if (nearstCone_yellow != -1 && yellow_distance < 2.5) 
+        // FALLBACKS: Repulsão do Amarelo e/ou do Azul.
+        // Avaliados de forma INDEPENDENTE (não em cadeia else-if) para que um cone
+        // perto de um lado nunca "roube a vez" à repulsão do outro lado.
+        else
         {
-            double dir_x = pt_x - cones_s[nearstCone_yellow].position.x;
-            double dir_y = pt_y - cones_s[nearstCone_yellow].position.y;
-            double mag = std::sqrt(dir_x * dir_x + dir_y * dir_y);
-            
-            if (mag > 0.0) {
-                double alvo_x = cones_s[nearstCone_yellow].position.x + (dir_x / mag) * 1.5;
-                double alvo_y = cones_s[nearstCone_yellow].position.y + (dir_y / mag) * 1.5;
-                
-                erro_x = alvo_x - pt_x;
-                erro_y = alvo_y - pt_y;
+            const double CLEARANCE_DESEJADA = 1.5;
+            bool aplicou_amarelo = false;
+            bool aplicou_azul = false;
+
+            if (nearstCone_yellow != -1 && yellow_distance < 2.5)
+            {
+                double dir_x = pt_x - cones_s[nearstCone_yellow].position.x;
+                double dir_y = pt_y - cones_s[nearstCone_yellow].position.y;
+                double mag = yellow_distance;
+
+                // Só empurra para fora se estivermos mais perto do que a clearance desejada.
+                // Nunca puxar para o cone: se mag >= CLEARANCE_DESEJADA o push fica a zero.
+                double push = std::max(0.0, CLEARANCE_DESEJADA - mag);
+                if (mag > 0.0 && push > 0.0) {
+                    erro_x += (dir_x / mag) * push * 1.5;
+                    erro_y += (dir_y / mag) * push * 1.5;
+                    aplicou_amarelo = true;
+                }
+            }
+
+            if (nearstCone_blue != -1 && blue_distance < 2.5)
+            {
+                double dir_x = pt_x - cones_s[nearstCone_blue].position.x;
+                double dir_y = pt_y - cones_s[nearstCone_blue].position.y;
+                double mag = blue_distance;
+
+                // Só empurra para fora se estivermos mais perto do que a clearance desejada.
+                // Nunca puxar para o cone: se mag >= CLEARANCE_DESEJADA o push fica a zero.
+                double push = std::max(0.0, CLEARANCE_DESEJADA - mag);
+                if (mag > 0.0 && push > 0.0) {
+                    erro_x += (dir_x / mag) * push * 1.5;
+                    erro_y += (dir_y / mag) * push * 1.5;
+                    aplicou_azul = true;
+                }
+            }
+
+            if (aplicou_amarelo && aplicou_azul) {
+                acao = "REPULSAO_AMBOS";
+            } else if (aplicou_amarelo) {
                 acao = "REPULSAO_AMARELO";
-            }
-        }
-        // FALLBACK 2: Repulsão do Azul
-        else if (nearstCone_blue != -1 && blue_distance < 2.5)
-        {
-            double dir_x = pt_x - cones_s[nearstCone_blue].position.x;
-            double dir_y = pt_y - cones_s[nearstCone_blue].position.y;
-            double mag = std::sqrt(dir_x * dir_x + dir_y * dir_y);
-            
-            if (mag > 0.0) {
-                double alvo_x = cones_s[nearstCone_blue].position.x + (dir_x / mag) * 1.5;
-                double alvo_y = cones_s[nearstCone_blue].position.y + (dir_y / mag) * 1.5;
-                
-                erro_x = alvo_x - pt_x;
-                erro_y = alvo_y - pt_y;
+            } else if (aplicou_azul) {
                 acao = "REPULSAO_AZUL";
+            } else {
+                continue;
             }
-        }
-        else 
-        {
-            continue; 
         }
 
         pontos_corrigidos++;
 
+        bool is_repulsao = (acao == "REPULSAO_AMARELO" || acao == "REPULSAO_AZUL" || acao == "REPULSAO_AMBOS");
+        double limite_ativo = is_repulsao ? MAX_CORRECTION_REPULSAO : MAX_CORRECTION;
+        // Repulsão de emergência: aplica o erro por inteiro (o "push" já foi calculado como
+        // a distância exata que falta para a clearance; amortecer devolvia o ponto para perto do cone).
+        // PAR_IDEAL: amortecido por ALPHA, como pedido.
+        double peso_aplicacao = is_repulsao ? 1.0 : ALPHA;
+
         double erro_magnitude = std::sqrt(erro_x * erro_x + erro_y * erro_y);
-        
+
         // Proteção contra guinadas
-        if (erro_magnitude > MAX_CORRECTION) {
-            double scale = MAX_CORRECTION / erro_magnitude;
+        if (erro_magnitude > limite_ativo) {
+            double scale = limite_ativo / erro_magnitude;
             erro_x *= scale;
             erro_y *= scale;
-            
+
             // DEBUG 2: Quando o limite é ativado num ponto específico
-            RCLCPP_WARN(this->get_logger(), "[SKIDPAD] Pt %zu (%s) | CORTE: Erro %.2f reduzido para %.2f", 
-                        i, acao.c_str(), erro_magnitude, MAX_CORRECTION);
+            RCLCPP_WARN(this->get_logger(), "[SKIDPAD] Pt %zu (%s) | CORTE: Erro %.2f reduzido para %.2f",
+                        i, acao.c_str(), erro_magnitude, limite_ativo);
         } else {
             // DEBUG 3: Comportamento normal por ponto
-            RCLCPP_INFO(this->get_logger(), "[SKIDPAD] Pt %zu (%s) | Aplicado: %.2fm", 
+            RCLCPP_INFO(this->get_logger(), "[SKIDPAD] Pt %zu (%s) | Aplicado: %.2fm",
                         i, acao.c_str(), erro_magnitude);
         }
 
-        path->poses[i].pose.position.x += erro_x * ALPHA;
-        path->poses[i].pose.position.y += erro_y * ALPHA;
+        path->poses[i].pose.position.x += erro_x * peso_aplicacao;
+        path->poses[i].pose.position.y += erro_y * peso_aplicacao;
 
         if (path_vis && i < path_vis->poses.size()) {
-            path_vis->poses[i].pose.position.x += erro_x * ALPHA;
-            path_vis->poses[i].pose.position.y += erro_y * ALPHA;
+            path_vis->poses[i].pose.position.x += erro_x * peso_aplicacao;
+            path_vis->poses[i].pose.position.y += erro_y * peso_aplicacao;
         }
     }
 
