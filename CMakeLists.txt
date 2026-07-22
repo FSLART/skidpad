@@ -48,6 +48,12 @@ ament_target_dependencies(skidpad_exec
   lart_msgs
 )
 
+install(
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
+)
+
+
 # --- Instalação (Install) ---
 
 # 1. Instalar o executável na pasta lib do pacote
