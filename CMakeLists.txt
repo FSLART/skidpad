@@ -17,6 +17,8 @@ find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(lart_msgs REQUIRED)
+find_package(ament_index_cpp REQUIRED)
+
 
 # --- Criar o Executável ---
 # NOTA: Removida a vírgula que estava entre os ficheiros fonte
@@ -46,6 +48,7 @@ ament_target_dependencies(skidpad_exec
   tf2
   std_msgs
   lart_msgs
+  ament_index_cpp
 )
 
 
@@ -69,7 +72,7 @@ install(DIRECTORY include/
 
 # 3. Instalar o ficheiro de dados (CSV)
 # Isto permite-te ler o skidpad_path.csv usando a diretoria de partilha do ament (ament_index_cpp::get_package_share_directory("skidpad"))
-install(FILES src/skidpad_path.csv
+install(FILES skidpad_path_xyk3.csv
   DESTINATION share/${PROJECT_NAME}/data
 )
 

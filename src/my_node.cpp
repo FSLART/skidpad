@@ -1,4 +1,6 @@
 #include "../include/my_node.hpp"
+#include <filesystem>
+#include <iostream>
 
 using std::placeholders::_1;
 
@@ -14,7 +16,17 @@ skidpad_node::skidpad_node() : Node("skidpadNode")
     this->rpm_subscriber = this->create_subscription<lart_msgs::msg::Dynamics>(TOPIC_CONTROL_FEEDBACK,10, std::bind(&skidpad_node::RpmCallback,this,_1));
 
     //mudar isto NAO PODE TER PATH ABSOLUTO ******************************
-    map = file_loader("skidpad_path_xyk3.csv");
+    // std::string package_path = ament_index_cpp::get_package_share_directory("skidpad");
+    // std::string csv_path = package_path + "/skidpad_path_xyk3.csv";
+
+    // map = file_loader(package_path);
+
+
+    std::filesystem::path current_file = __FILE__;
+    std::filesystem::path csv_path = current_file.parent_path().parent_path() / "skidpad_path_xyk3.csv";
+
+    std::cout << "Caminho direto (src): " << csv_path.string() << std::endl;
+    map = file_loader(csv_path.string());
 };
 
 void skidpad_node::SplitLineSender()

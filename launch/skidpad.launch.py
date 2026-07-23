@@ -8,6 +8,6 @@ def generate_launch_description():
         Node(
                 package="skidpad",
                 executable="skidpad_exec",
-                name="skidpadNode",
+                name="skidpadNode"
             )
         ])

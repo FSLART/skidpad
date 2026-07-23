@@ -18,6 +18,8 @@
 #include "utils.hpp"
 #include "types.hpp"
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#include <string>
 
 class skidpad_node : public rclcpp::Node
 {
@@ -26,13 +28,13 @@ class skidpad_node : public rclcpp::Node
     private:
         std::size_t last_idx_ = 0;
         std::vector<PathStruct> map;
-        bool map_Localized = false;
+        bool map_Localized = true;
         CarData carData;
         lart_msgs::msg::ConeArray::SharedPtr coneArray;
        
         //MAP LOCALIZER
         const double LOCK_THRESHOLD = 0.15;
-        const size_t MAP_LOCALIZER_TRYS = 3000;
+        const size_t MAP_LOCALIZER_TRYS = 3500;
         
         double best_map_distance = std::numeric_limits<double>::max();
         size_t map_trys =0;
